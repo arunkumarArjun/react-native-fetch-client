@@ -1,6 +1,6 @@
 {
   "name": "react-native-fetch-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A lightweight, Fetch-native HTTP client for TypeScript, React Native, Expo, browsers, and Node.js",
   "author": "",
   "license": "MIT",

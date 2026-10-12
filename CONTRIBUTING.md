@@ -1,12 +1,12 @@
-# Contributing to fetch-native-client
+# Contributing to react-native-fetch-client
 
 Thank you for your interest in contributing!
 
 ## Development setup
 
 ```bash
-git clone https://github.com/OWNER/fetch-native-client.git
-cd fetch-native-client
+git clone https://github.com/arunkumarArjun/react-native-fetch-client.git
+cd react-native-fetch-client
 npm install
 npm run build
 npm run test

@@ -14,14 +14,14 @@
 
 For in-depth explanations, execution pipeline flows, and implementation guides, explore the dedicated documentation suite:
 
-* 🏛️ **[Architecture & Execution Pipeline Flow](./docs/architecture-flow.md)** — Step-by-step trace through the 16-stage request pipeline.
-* 🛠️ **[Core Features & Usage Guide](./docs/core-features-guide.md)** — Client setup, HTTP methods, path params, form encoding, safe requests, and unwrap.
-* ⚡ **[Caching & Stale-While-Revalidate](./docs/caching-and-swr.md)** — In-memory LRU, persistent storage adapters (MMKV/AsyncStorage), ETag/304, and SWR.
-* 🛡️ **[Resilience, Retries & Offline Queue](./docs/resilience-and-offline.md)** — Exponential backoff, jitter, circuit breakers, concurrency throttling, and offline replay.
-* 🤖 **[Streaming, AI & File Uploads](./docs/streaming-and-uploads.md)** — SSE & AI LLM token streams, WHATWG streams, file uploads, and upload/download progress.
-* 🔑 **[Authentication & Security](./docs/auth-and-security.md)** — Bearer presets, single-flight 401 refresh mutex, token rotation, and header redaction.
-* 🔄 **[Auto-Pagination Helper](./docs/auto-pagination.md)** — Traversal strategies (`page`, `offset`, `cursor`, `linkHeader`) and async generator streaming.
-* 🧪 **[Testing & Mock Adapter Guide](./docs/testing-and-mocking.md)** — Declarative unit testing (`createMockAdapter`), route stubbing, and call assertions.
+* 🏛️ **[Architecture & Execution Pipeline Flow](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/architecture-flow.md)** — Step-by-step trace through the 16-stage request pipeline.
+* 🛠️ **[Core Features & Usage Guide](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/core-features-guide.md)** — Client setup, HTTP methods, path params, form encoding, safe requests, and unwrap.
+* ⚡ **[Caching & Stale-While-Revalidate](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/caching-and-swr.md)** — In-memory LRU, persistent storage adapters (MMKV/AsyncStorage), ETag/304, and SWR.
+* 🛡️ **[Resilience, Retries & Offline Queue](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/resilience-and-offline.md)** — Exponential backoff, jitter, circuit breakers, concurrency throttling, and offline replay.
+* 🤖 **[Streaming, AI & File Uploads](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/streaming-and-uploads.md)** — SSE & AI LLM token streams, WHATWG streams, file uploads, and upload/download progress.
+* 🔑 **[Authentication & Security](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/auth-and-security.md)** — Bearer presets, single-flight 401 refresh mutex, token rotation, and header redaction.
+* 🔄 **[Auto-Pagination Helper](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/auto-pagination.md)** — Traversal strategies (`page`, `offset`, `cursor`, `linkHeader`) and async generator streaming.
+* 🧪 **[Testing & Mock Adapter Guide](https://github.com/arunkumarArjun/react-native-fetch-client/blob/main/docs/testing-and-mocking.md)** — Declarative unit testing (`createMockAdapter`), route stubbing, and call assertions.
 
 ---
 
@@ -459,6 +459,105 @@ const api = createClient({
     etag: true, // Enables conditional 304 validation
   },
 });
+```
+
+---
+
+## Auto-Pagination Helper (`api.paginate`)
+
+Traverse multi-page APIs seamlessly using async generators (`for await`) or collect all pages directly:
+
+```typescript
+// 1. Stream items individually with for-await (Memory efficient!)
+for await (const user of api.paginate<User>('/users', {
+  pagination: { type: 'page', pageParam: 'page', pageSize: 20 },
+})) {
+  console.log(user.name);
+}
+
+// 2. Fetch all pages and flatten into an array in one call:
+const allPosts = await api.paginate.all<Post>('/posts', {
+  pagination: { type: 'page', pageParam: '_page', limitParam: '_limit', limit: 10 },
+});
+console.log(`Fetched ${allPosts.length} posts across all pages!`);
+```
+
+Supports 4 pagination strategies: `page`, `offset`, `cursor`, and RFC 5988/8288 standard `Link` headers.
+
+---
+
+## Persistent Storage Response Cache (`storage`)
+
+Cache responses directly to mobile disk (MMKV, AsyncStorage, or localStorage) so data survives app restarts:
+
+```typescript
+import { MMKV } from 'react-native-mmkv';
+
+const mmkv = new MMKV({ id: 'http-cache' });
+
+const api = createClient({
+  baseURL: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    storage: {
+      getItem: (key) => mmkv.getString(key) ?? null,
+      setItem: (key, value) => mmkv.set(key, value),
+      removeItem: (key) => mmkv.delete(key),
+    },
+    defaultTtl: 300_000, // 5 minutes
+  },
+});
+
+// Automatically hydrates from MMKV on startup!
+// Immediate cache hit on cold app boots (0ms latency):
+const res = await api.get('/user/profile');
+```
+
+---
+
+## Stale-While-Revalidate (`strategy: 'stale-while-revalidate'`)
+
+Return cached data instantly (**0ms latency**, `cached: true, stale: true`) to keep the UI buttery smooth, while quietly fetching the latest data from the network in the background:
+
+```typescript
+const res = await api.get('/dashboard/stats', {
+  cache: {
+    strategy: 'stale-while-revalidate',
+    onRevalidated: (freshResponse) => {
+      console.log('Background sync complete! Updated data:', freshResponse.data);
+      updateUI(freshResponse.data);
+    },
+  },
+});
+
+console.log(res.stale); // true (Served immediately without network lag!)
+```
+
+---
+
+## Declarative Testing Mock Adapter (`createMockAdapter`)
+
+Zero-dependency unit testing for your network calls. Stub routes, simulate network timeouts or offline errors, and assert call history:
+
+```typescript
+import { createClient, createMockAdapter } from 'react-native-fetch-client';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+const mock = createMockAdapter(api);
+
+// 1. Mock a route
+mock.onGet('/users/active').reply(200, [{ id: 1, name: 'Alice' }]);
+
+// 2. Simulate errors
+mock.onPost('/billing/charge').replyWithTimeout();
+
+// 3. Test & assert history
+const res = await api.get('/users/active');
+expect(res.data).toEqual([{ id: 1, name: 'Alice' }]);
+expect(mock.history.get).toHaveLength(1);
+
+// Clean up
+mock.restore();
 ```
 
 ---

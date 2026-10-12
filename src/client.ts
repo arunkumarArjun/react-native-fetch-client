@@ -1,0 +1,351 @@
+/**
+ * Main HTTP Client Factory for react-native-fetch-client.
+ *
+
+ * Provides a modern, Fetch-native HTTP client instance with:
+ * - Axios-like convenience methods (`.get()`, `.post()`, `.put()`, `.patch()`, `.delete()`, `.request()`)
+ * - Safe error handling (`.safe.get()`, `.safe.post()`, etc.) returning `[data, error]` tuples
+ * - Native AI / SSE streaming (`.stream()`) using WHATWG ReadableStream and AsyncGenerator
+ * - File and FormData upload helper (`.upload()`) with progress tracking
+ * - Interceptors for requests and responses
+ * - Pluggable in-memory caching and deduplication
+ * - Concurrency throttling and Circuit Breaker resiliency
+ *
+ * @module client
+ */
+
+import { executeRequest } from './executor.js';
+import { AuthManager } from './auth.js';
+import { DedupManager } from './dedup.js';
+import { CacheManager } from './cache.js';
+import { CircuitBreaker } from './circuit-breaker.js';
+import { ConcurrencyLimiter } from './concurrency.js';
+import { parseSseStream } from './stream.js';
+import { DefaultInterceptorManager } from './interceptor.js';
+import { createPaginateHelper } from './paginate.js';
+import { isFetchNativeError, NetworkError, ConfigError } from './errors.js';
+import type {
+  ClientConfig,
+  HttpClient,
+  RequestConfig,
+  HttpMethod,
+  HttpResponse,
+  SafeResult,
+  SafeHttpClient,
+  StreamEvent,
+  StreamOptions,
+  UploadFileSource,
+  UploadOptions,
+  PaginateHelper,
+} from './types.js';
+
+/**
+ * Creates and configures a new `HttpClient` instance.
+ *
+ * @param config Optional client-level configuration defaults.
+ * @returns An initialized `HttpClient` instance.
+ *
+ * @example
+ * ```ts
+ * import { createClient } from 'react-native-fetch-client';
+ *
+
+ * const api = createClient({
+ *   baseURL: 'https://api.example.com/v1',
+ *   timeout: 10000,
+ *   bearerToken: 'my-jwt-token',
+ *   retry: { attempts: 3 },
+ * });
+ *
+ * // Standard request
+ * const res = await api.get('/users/123');
+ * console.log(res.data);
+ *
+ * // Safe request without try/catch
+ * const [user, error] = await api.safe.get('/users/123');
+ * if (error) {
+ *   console.error('Request failed:', error.message);
+ * }
+ * ```
+ */
+export function createClient(config: ClientConfig = {}): HttpClient {
+  const clientConfig = { ...config };
+  const authManager = new AuthManager(config.auth);
+  const dedupManager = new DedupManager();
+  const cacheManager = new CacheManager(config.cache);
+
+  const circuitBreaker = config.circuitBreaker?.enabled
+    ? new CircuitBreaker(config.circuitBreaker)
+    : undefined;
+
+  const concurrencyLimiter =
+    config.maxConcurrentRequests !== undefined && config.maxConcurrentRequests > 0
+      ? new ConcurrencyLimiter(config.maxConcurrentRequests)
+      : undefined;
+
+  const requestInterceptors = new DefaultInterceptorManager<RequestConfig>();
+  const responseInterceptors = new DefaultInterceptorManager<HttpResponse<unknown>>();
+
+  /**
+   * Primary request dispatcher executing interceptors and the core pipeline.
+   */
+  const request = async <T = unknown>(
+    reqConfig: RequestConfig & { url: string; method: HttpMethod },
+  ): Promise<HttpResponse<T>> => {
+    let currentConfig: RequestConfig & { url: string; method: HttpMethod } = { ...reqConfig };
+
+    // Request interceptors execute in registration order
+    for (const interceptor of requestInterceptors.getInterceptors()) {
+      try {
+        currentConfig = (await interceptor.fulfilled(currentConfig)) as RequestConfig & {
+          url: string;
+          method: HttpMethod;
+        };
+      } catch (err: unknown) {
+        if (interceptor.rejected) {
+          currentConfig = (await interceptor.rejected(err)) as RequestConfig & {
+            url: string;
+            method: HttpMethod;
+          };
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    let response: HttpResponse<T>;
+    try {
+      response = await executeRequest<T>(
+        currentConfig,
+        clientConfig,
+        authManager,
+        dedupManager,
+        cacheManager,
+        circuitBreaker,
+        concurrencyLimiter,
+      );
+    } catch (err: unknown) {
+      let currentError: unknown = err;
+      for (const interceptor of responseInterceptors.getInterceptors()) {
+        if (interceptor.rejected) {
+          try {
+            const recovered = await interceptor.rejected(currentError);
+            return recovered as HttpResponse<T>;
+          } catch (rejectedErr: unknown) {
+            currentError = rejectedErr;
+          }
+        }
+      }
+      throw currentError;
+    }
+
+    let currentResponse: HttpResponse<unknown> = response;
+    for (const interceptor of responseInterceptors.getInterceptors()) {
+      try {
+        currentResponse = await interceptor.fulfilled(currentResponse);
+      } catch (err: unknown) {
+        if (interceptor.rejected) {
+          currentResponse = (await interceptor.rejected(err)) as HttpResponse<unknown>;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const shouldUnwrap = currentConfig.unwrap ?? clientConfig.unwrap ?? false;
+    if (shouldUnwrap) {
+      return (currentResponse as HttpResponse<T>).data as unknown as HttpResponse<T>;
+    }
+
+    return currentResponse as HttpResponse<T>;
+  };
+
+  /**
+   * Executes a request safely, returning a Go/Rust style `[data, error]` tuple instead of throwing.
+   */
+  const safeRequest = async <T = unknown>(
+    reqConfig: RequestConfig & { url: string; method: HttpMethod },
+  ): Promise<SafeResult<T>> => {
+    try {
+      const res = await request<T>({ ...reqConfig, unwrap: false });
+      return [res.data, null];
+    } catch (err: unknown) {
+      const fncError = isFetchNativeError(err)
+        ? err
+        : new NetworkError(err instanceof Error ? err.message : String(err), { cause: err });
+      return [null, fncError];
+    }
+  };
+
+  /**
+   * Safe methods collection.
+   */
+  const safe: SafeHttpClient = {
+    get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      safeRequest<T>({ ...reqConfig, url, method: 'GET' }),
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'POST',
+      };
+      if (body !== undefined) merged.body = body;
+      return safeRequest<T>(merged);
+    },
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'PUT',
+      };
+      if (body !== undefined) merged.body = body;
+      return safeRequest<T>(merged);
+    },
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'PATCH',
+      };
+      if (body !== undefined) merged.body = body;
+      return safeRequest<T>(merged);
+    },
+    delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
+    request: <T = unknown>(reqConfig: RequestConfig & { url: string; method: HttpMethod }) =>
+      safeRequest<T>(reqConfig),
+  };
+
+  /**
+   * Streams Server-Sent Events (SSE) or raw chunk lines via an AsyncGenerator.
+   */
+  async function* stream(
+    url: string,
+    options?: StreamOptions,
+  ): AsyncGenerator<StreamEvent, void, unknown> {
+    const reqConfig: RequestConfig & { url: string; method: HttpMethod } = {
+      ...options,
+      url,
+      method: options?.method ?? 'GET',
+      responseType: 'stream',
+      unwrap: false,
+    };
+
+    const response = await request<ReadableStream<Uint8Array>>(reqConfig);
+    if (!response.data || typeof response.data.getReader !== 'function') {
+      return;
+    }
+
+    yield* parseSseStream(response.data, options);
+  }
+
+  /**
+   * Upload helper that simplifies file and FormData uploads with automatic boundary handling.
+   */
+  const upload = async <T = unknown>(
+    url: string,
+    file: UploadFileSource,
+    options?: UploadOptions,
+  ): Promise<HttpResponse<T>> => {
+    let formData: FormData;
+    const fieldName = options?.fieldName ?? 'file';
+
+    if (typeof FormData !== 'undefined' && file instanceof FormData) {
+      formData = file;
+      if (options?.extraFields) {
+        for (const [k, v] of Object.entries(options.extraFields)) {
+          formData.append(k, String(v));
+        }
+      }
+    } else if (typeof FormData !== 'undefined') {
+      formData = new FormData();
+      if (typeof Blob !== 'undefined' && file instanceof Blob) {
+        if (options?.fileName) {
+          formData.append(fieldName, file, options.fileName);
+        } else {
+          formData.append(fieldName, file);
+        }
+      } else if (file instanceof ArrayBuffer || file instanceof Uint8Array) {
+        const buffer = file instanceof Uint8Array ? (file.buffer as ArrayBuffer) : file;
+        const blob = new Blob([buffer]);
+        if (options?.fileName) {
+          formData.append(fieldName, blob, options.fileName);
+        } else {
+          formData.append(fieldName, blob);
+        }
+      } else if (typeof file === 'object' && file !== null) {
+        for (const [k, v] of Object.entries(file)) {
+          if (typeof Blob !== 'undefined' && v instanceof Blob) {
+            formData.append(k, v);
+          } else if (v !== undefined && v !== null) {
+            formData.append(k, String(v));
+          }
+        }
+      }
+
+      if (options?.extraFields) {
+        for (const [k, v] of Object.entries(options.extraFields)) {
+          formData.append(k, String(v));
+        }
+      }
+    } else {
+      throw new ConfigError('FormData is not available in this environment');
+    }
+
+    const mergedConfig: RequestConfig & { url: string; method: HttpMethod } = {
+      ...options,
+      url,
+      method: options?.method ?? 'POST',
+      body: formData,
+    };
+
+    return request<T>(mergedConfig);
+  };
+
+  const client: HttpClient = {
+    request,
+    get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      request<T>({ ...reqConfig, url, method: 'GET' }),
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'POST',
+      };
+      if (body !== undefined) merged.body = body;
+      return request<T>(merged);
+    },
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'PUT',
+      };
+      if (body !== undefined) merged.body = body;
+      return request<T>(merged);
+    },
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
+      const merged: RequestConfig & { url: string; method: HttpMethod } = {
+        ...reqConfig,
+        url,
+        method: 'PATCH',
+      };
+      if (body !== undefined) merged.body = body;
+      return request<T>(merged);
+    },
+    delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      request<T>({ ...reqConfig, url, method: 'DELETE' }),
+    safe,
+    stream,
+    upload,
+    paginate: null as unknown as PaginateHelper,
+    cache: cacheManager,
+    interceptors: {
+      request: requestInterceptors,
+      response: responseInterceptors,
+    },
+  };
+
+  client.paginate = createPaginateHelper(client);
+  return client;
+}

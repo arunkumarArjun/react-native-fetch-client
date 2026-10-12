@@ -1,0 +1,21 @@
+# Source files — not needed at runtime
+src/
+test/
+examples/
+coverage/
+
+# Config files — not needed by consumers
+tsconfig.json
+tsconfig.build.json
+tsup.config.ts
+vitest.config.ts
+.eslintrc.cjs
+.prettierrc.json
+.gitignore
+.github/
+
+# Logs and local tooling
+*.log
+node_modules/
+.DS_Store
+

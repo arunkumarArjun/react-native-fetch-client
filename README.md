@@ -58,7 +58,6 @@ For in-depth explanations, execution pipeline flows, and implementation guides, 
 - [Offline Request Queue](#offline-request-queue)
 - [Node.js Enterprise Proxies & Dispatcher](#nodejs-enterprise-proxies--dispatcher)
 - [Migration Guide (From Axios)](#migration-guide-from-axios)
-- [Testing Locally with Your Team](#testing-locally-with-your-team)
 
 ---
 
@@ -861,45 +860,6 @@ Switching from Axios takes only a few minutes. Most method signatures are identi
 
 ---
 
-## Testing Locally with Your Team
-
-To test this library within your team before publishing to public npm:
-
-### Option 1: Pack as a Local `.tgz` Tarball
-```bash
-# In react-native-fetch-client:
-npm run build
-npm pack
-# Generates react-native-fetch-client-0.1.0.tgz
-```
-Share `react-native-fetch-client-0.1.0.tgz` with your teammate. In their project, they install:
-```bash
-npm install ./path/to/react-native-fetch-client-0.1.0.tgz
-```
-
-### Option 2: Local `npm link`
-```bash
-# In react-native-fetch-client:
-npm link
-
-# In teammate's project:
-npm link react-native-fetch-client
-```
-
----
-
-## Verification & Quality Gates
-
-The codebase enforces strict quality checks:
-
-```bash
-npm run typecheck      # Strict TypeScript check (0 errors)
-npm test               # 13 Vitest suites, 143 unit/integration tests (0 failures)
-npm run lint           # ESLint 10 verification
-npm run build          # Dual ESM & CJS build via tsup
-```
-
----
 
 ## License
 

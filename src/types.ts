@@ -408,9 +408,18 @@ export interface RequestConfig {
   /** Internal tracking flag indicating whether this request has already acquired a concurrency slot. */
   _isFromConcurrency?: boolean;
   /**
+   * Cancellation group key. If a previous request is in-flight with the same group key,
+   * it will be automatically aborted when this new request starts. Ideal for search/autocomplete.
+   */
+  cancelPrevious?: string;
+  /**
    * Callback fired when background revalidation finishes in 'stale-while-revalidate' mode.
    */
   onRevalidated?: (response: HttpResponse<unknown>) => void;
+  /**
+   * Callback fired when background revalidation fails in 'stale-while-revalidate' mode.
+   */
+  onRevalidationError?: (error: unknown) => void;
   /** Internal tracking flag indicating whether this request is a background SWR revalidation. */
   _isRevalidating?: boolean;
 }
@@ -533,6 +542,8 @@ export interface HttpResponse<T = unknown> {
   fromDedup: boolean;
   /** The original Fetch Request object. */
   request: Request;
+  /** Total round-trip execution duration in milliseconds. */
+  durationMs?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -649,6 +660,11 @@ export interface AuthConfig {
    * Accepts exact strings or RegExp patterns.
    */
   refreshExcludeUrls?: Array<string | RegExp>;
+  /**
+   * Proactive token expiry predicate. If this returns true, `refreshToken()` is called
+   * before dispatching the request to avoid an unnecessary 401 roundtrip.
+   */
+  isExpired?: () => boolean | Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -707,6 +723,15 @@ export interface RequestCacheConfig {
    * Callback fired when background revalidation finishes in 'stale-while-revalidate' mode.
    */
   onRevalidated?: (response: HttpResponse<unknown>) => void;
+  /**
+   * Callback fired when background revalidation fails in 'stale-while-revalidate' mode.
+   */
+  onRevalidationError?: (error: unknown) => void;
+  /**
+   * Specific URL patterns or routes to purge from the cache when this request succeeds.
+   * Useful for mutations (POST, PUT, DELETE) to invalidate related collection endpoints.
+   */
+  invalidate?: Array<string | RegExp>;
 }
 
 /** In-memory and persistent cache configuration for client-level setup. */
@@ -1123,4 +1148,22 @@ export interface HttpClient {
    * Auto-pagination traversal helper.
    */
   paginate: PaginateHelper;
+  /**
+   * Polls an endpoint repeatedly until a condition is met or timeout expires.
+   */
+  poll<T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>>;
+}
+
+/**
+ * Configuration options for `api.poll()`.
+ */
+export interface PollOptions<T = unknown> extends RequestConfig {
+  /** Polling interval in milliseconds. Default: 1000. */
+  interval?: number;
+  /** Maximum total time to poll in milliseconds before throwing TimeoutError. Default: 30000. */
+  timeout?: number;
+  /** Predicate returning true when polling has succeeded. */
+  until: (response: HttpResponse<T>) => boolean | Promise<boolean>;
+  /** Optional backoff multiplier for interval growth (e.g. 1.5). Default: 1 (fixed interval). */
+  backoff?: number;
 }

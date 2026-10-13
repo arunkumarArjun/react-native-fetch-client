@@ -5,13 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2026-10-13
 
 ### Added
-- Project foundation: TypeScript, tsup, Vitest, ESLint, Prettier configuration
-- Complete public type definitions (`types.ts`)
-- Error class hierarchy: `FetchNativeError`, `HttpError`, `NetworkError`, `TimeoutError`, `CancelError`, `ParseError`, `ConfigError`, `RetryExhaustedError`
-- Type guard helpers: `isFetchNativeError`, `isHttpError`, `isNetworkError`, `isTimeoutError`, `isCancelError`
-- ESM + CJS dual output via tsup
-- TypeScript declaration files (`.d.ts`, `.d.mts`, `.d.cts`)
+- **Smart Polling Helper (`api.poll`)**: Poll asynchronous endpoints until an `until` predicate resolves to true, with configurable `interval`, `timeout`, and exponential `backoff`.
+- **Search Autocomplete Auto-Cancel (`cancelPrevious`)**: Pass a cancellation group key to automatically cancel previous in-flight requests in the group as newer queries are dispatched.
+- **Request Latency Metric (`response.durationMs`)**: Exposed elapsed roundtrip time directly on `HttpResponse` across network calls, LRU cache hits, and 304 revalidations.
+- **Proactive Auth Token Refresh (`isExpired`)**: Optional predicate on `AuthConfig` to refresh expired tokens before dispatching, avoiding the initial failed 401 roundtrip.
+- **Declarative Cache Invalidation (`cache.invalidate`)**: Mutations (`POST`, `PUT`, `PATCH`, `DELETE`) can declare route paths or RegExp patterns to purge associated collection lists from cache upon success.
+- **SWR Background Error Callback (`onRevalidationError`)**: Callback on `RequestCacheConfig` to catch and inspect background revalidation failures without crashing the UI.
 
+## [0.1.2] - 2026-10-12
+
+### Added
+- **Declarative Testing Mock Adapter (`createMockAdapter`)**: Zero-dependency mock adapter for route stubbing, error simulations, and call history assertions.
+- **Standard Schema v1 Support (`schema`)**: Duck-typed runtime schema validation compatible with Zod, Valibot, ArkType, and custom validator functions.
+- **RFC 7234 Conditional Validation (`etag: true`)**: Automatic tracking of `ETag` and `Last-Modified` headers, reusing cached payloads on HTTP 304 Not Modified.
+- **Persistent Storage Adapter (`storage`)**: Pluggable storage interface for MMKV, AsyncStorage, and localStorage with automatic hydration on startup.
+
+## [0.1.1] - 2026-10-10
+
+### Added
+- **Persistent Offline Queue (`createOfflineQueue`)**: Queue mutations offline and sequentially replay them with RFC-standard `Idempotency-Key` headers when back online.
+- **Auto-Pagination Helper (`api.paginate`)**: Async generator streaming and `.all()` collection helper supporting `page`, `offset`, `cursor`, and `Link` headers.
+- **Native AI & SSE Streaming (`api.stream`)**: Server-Sent Events (SSE) and raw LLM token streaming via WHATWG `ReadableStream` and async generators.
+- **Circuit Breaker (`circuitBreaker`)**: Three-state circuit breaker (`CLOSED`, `OPEN`, `HALF_OPEN`) to prevent cascading microservice failures.
+- **Concurrency Throttler (`maxConcurrentRequests`)**: FIFO queue capping simultaneous in-flight sockets.
+
+## [0.1.0] - 2026-10-09
+
+### Added
+- Initial public release.
+- Zero runtime dependencies (`dependencies: {}`).
+- First-class TypeScript generics and dual ESM (`.mjs`) + CommonJS (`.cjs`) builds.
+- Native WHATWG `fetch` execution pipeline for React Native (Bridgeless / New Architecture), Expo, Web, and Node.js.
+- Single-flight 401 token refresh mutex.
+- In-flight request deduplication for concurrent `GET`/`HEAD` requests.
+- In-memory Least Recently Used (LRU) response cache and Stale-While-Revalidate (SWR).
+- Resilient retry engine with exponential backoff, full jitter, and `Retry-After` header support.
+- Safe Go/Rust-style tuple returns (`api.safe.*`).
+- Express-style (`:id`) and OpenAPI-style (`{id}`) path parameter interpolation.

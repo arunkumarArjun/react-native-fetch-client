@@ -73,7 +73,11 @@ export function createMockAdapter(
     }
     try {
       const parsed = new URL(targetUrl, 'http://localhost');
-      return parsed.pathname === pattern || parsed.pathname + parsed.search === pattern || targetUrl.includes(pattern);
+      return (
+        parsed.pathname === pattern ||
+        parsed.pathname + parsed.search === pattern ||
+        targetUrl.includes(pattern)
+      );
     } catch {
       return targetUrl.includes(pattern);
     }
@@ -88,7 +92,11 @@ export function createMockAdapter(
       url,
       action: 'reply',
       status: 200,
-      reply(statusOrCallback: number | MockReplyCallback, data?: unknown, headers?: Record<string, string>) {
+      reply(
+        statusOrCallback: number | MockReplyCallback,
+        data?: unknown,
+        headers?: Record<string, string>,
+      ) {
         if (typeof statusOrCallback === 'function') {
           handler.action = 'reply';
           handler.callback = statusOrCallback;

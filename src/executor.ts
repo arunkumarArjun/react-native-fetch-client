@@ -168,7 +168,82 @@ async function dispatchFetch<T>(
   };
 }
 
+const activeCancelGroups = new Map<string, AbortController>();
+
 export async function executeRequest<T = unknown>(
+  config: RequestConfig,
+  clientConfig: ClientConfig = {},
+  authManager?: AuthManager,
+  dedupManager?: DedupManager,
+  cacheManager?: CacheManager,
+  circuitBreaker?: CircuitBreaker,
+  concurrencyLimiter?: ConcurrencyLimiter,
+): Promise<HttpResponse<T>> {
+  // 0. Auto-cancel previous in-flight request in the same cancellation group
+  let groupController: AbortController | undefined;
+  let groupKey: string | undefined;
+  if (
+    config.cancelPrevious &&
+    !config._isFromConcurrency &&
+    !config._isFromDedup &&
+    !config._isRefreshed
+  ) {
+    groupKey = config.cancelPrevious;
+    const existing = activeCancelGroups.get(groupKey);
+    if (existing) {
+      existing.abort(
+        new CancelError({
+          cause: new Error(
+            `Request canceled because a newer request was dispatched in group '${groupKey}'`,
+          ),
+        }),
+      );
+    }
+    groupController = new AbortController();
+    activeCancelGroups.set(groupKey, groupController);
+
+    if (config.signal) {
+      if (config.signal.aborted) {
+        groupController.abort(config.signal.reason);
+      } else {
+        config.signal.addEventListener(
+          'abort',
+          () => groupController?.abort(config.signal?.reason),
+          {
+            once: true,
+          },
+        );
+      }
+    }
+
+    config = {
+      ...config,
+      signal: groupController.signal,
+    };
+  }
+
+  const cleanupGroup = (): void => {
+    if (groupKey && groupController && activeCancelGroups.get(groupKey) === groupController) {
+      activeCancelGroups.delete(groupKey);
+    }
+  };
+
+  try {
+    return await executeRequestInternal<T>(
+      config,
+      clientConfig,
+      authManager,
+      dedupManager,
+      cacheManager,
+      circuitBreaker,
+      concurrencyLimiter,
+    );
+  } finally {
+    cleanupGroup();
+  }
+}
+
+async function executeRequestInternal<T = unknown>(
   config: RequestConfig,
   clientConfig: ClientConfig = {},
   authManager?: AuthManager,
@@ -267,6 +342,7 @@ export async function executeRequest<T = unknown>(
       if (isFresh && !forceRevalidate) {
         const cachedResponse = cacheManager.get<T>(cacheKey);
         if (cachedResponse !== undefined) {
+          cachedResponse.durationMs = Date.now() - startTime;
           return cachedResponse;
         }
       }
@@ -275,6 +351,7 @@ export async function executeRequest<T = unknown>(
       if (strategy === 'stale-while-revalidate' && !config._isRevalidating) {
         const staleResponse = cacheManager.get<T>(cacheKey, { allowStale: true });
         if (staleResponse !== undefined) {
+          staleResponse.durationMs = Date.now() - startTime;
           const revalidateConfig: RequestConfig = {
             ...config,
             _isRevalidating: true,
@@ -296,8 +373,13 @@ export async function executeRequest<T = unknown>(
                 onRevalidated(freshRes);
               }
             })
-            .catch(() => {
-              // Background revalidation failures are silent to protect the caller
+            .catch((err: unknown) => {
+              const onRevalidationError =
+                (typeof config.cache === 'object' && config.cache?.onRevalidationError) ||
+                config.onRevalidationError;
+              if (onRevalidationError) {
+                onRevalidationError(err);
+              }
             });
 
           return staleResponse;
@@ -561,6 +643,13 @@ export async function executeRequest<T = unknown>(
           cacheManager.deletePattern(urlObj.pathname);
         }
 
+        // Custom declarative cache invalidation (e.g. cache: { invalidate: ['/users'] })
+        if (cacheManager && typeof config.cache === 'object' && config.cache.invalidate) {
+          for (const pattern of config.cache.invalidate) {
+            cacheManager.deletePattern(pattern);
+          }
+        }
+
         // 8. Standard Schema / Duck-Typing Schema Validation
         if (config.schema) {
           const validatedData = await validateData<T>(
@@ -577,6 +666,7 @@ export async function executeRequest<T = unknown>(
         // Record success in circuit breaker
         activeBreaker?.recordSuccess();
 
+        response.durationMs = Date.now() - startTime;
         logSuccess(response);
         return response;
       } catch (err: unknown) {

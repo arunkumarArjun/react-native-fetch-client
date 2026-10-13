@@ -23,7 +23,13 @@ import { ConcurrencyLimiter } from './concurrency.js';
 import { parseSseStream } from './stream.js';
 import { DefaultInterceptorManager } from './interceptor.js';
 import { createPaginateHelper } from './paginate.js';
-import { isFetchNativeError, NetworkError, ConfigError } from './errors.js';
+import {
+  isFetchNativeError,
+  NetworkError,
+  ConfigError,
+  TimeoutError,
+  CancelError,
+} from './errors.js';
 import type {
   ClientConfig,
   HttpClient,
@@ -37,6 +43,7 @@ import type {
   UploadFileSource,
   UploadOptions,
   PaginateHelper,
+  PollOptions,
 } from './types.js';
 
 /**
@@ -338,6 +345,81 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     safe,
     stream,
     upload,
+    poll: async <T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>> => {
+      const interval = Math.max(50, options.interval ?? 1000);
+      const timeout = Math.max(0, options.timeout ?? 30000);
+      const backoff = Math.max(1, options.backoff ?? 1);
+      const startTime = Date.now();
+      let currentInterval = interval;
+
+      while (true) {
+        if (options.signal?.aborted) {
+          throw new CancelError({ cause: options.signal.reason });
+        }
+
+        if (timeout > 0 && Date.now() - startTime >= timeout) {
+          throw new TimeoutError(timeout, {
+            config: {
+              url,
+              method: options.method ?? 'GET',
+              headers: {},
+              timeout,
+              responseType: options.responseType ?? 'json',
+              retry: {
+                attempts: 0,
+                backoff: 'exponential',
+                delay: 0,
+                maxDelay: 0,
+                jitter: false,
+                retryOn: [],
+                safeMethods: [],
+                respectRetryAfter: false,
+              },
+            },
+          });
+        }
+
+        const res = await request<T>({
+          ...options,
+          url,
+          method: options.method ?? 'GET',
+        });
+
+        const matched = await options.until(res);
+        if (matched) {
+          return res;
+        }
+
+        if (timeout > 0 && Date.now() - startTime + currentInterval >= timeout) {
+          const remaining = timeout - (Date.now() - startTime);
+          if (remaining > 0) {
+            await new Promise((r) => setTimeout(r, remaining));
+          }
+          throw new TimeoutError(timeout, {
+            config: {
+              url,
+              method: options.method ?? 'GET',
+              headers: {},
+              timeout,
+              responseType: options.responseType ?? 'json',
+              retry: {
+                attempts: 0,
+                backoff: 'exponential',
+                delay: 0,
+                maxDelay: 0,
+                jitter: false,
+                retryOn: [],
+                safeMethods: [],
+                respectRetryAfter: false,
+              },
+            },
+          });
+        }
+
+        await new Promise((r) => setTimeout(r, currentInterval));
+        currentInterval = Math.round(currentInterval * backoff);
+      }
+    },
     paginate: null as unknown as PaginateHelper,
     cache: cacheManager,
     interceptors: {

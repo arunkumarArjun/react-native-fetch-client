@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript & JavaScript](https://img.shields.io/badge/Languages-TypeScript%20%7C%20JavaScript-blue)](https://www.typescriptlang.org/)
 [![Runtime Dependencies](https://img.shields.io/badge/Dependencies-0-success.svg)](package.json)
-[![Tests: 186 passing](https://img.shields.io/badge/Tests-186%20Passing-brightgreen.svg)](test)
+[![Tests: 193 passing](https://img.shields.io/badge/Tests-193%20Passing-brightgreen.svg)](test)
 [![Expo & React Native](https://img.shields.io/badge/React%20Native-Bridgeless%20%26%20New%20Arch%20Ready-success.svg)](https://reactnative.dev)
 
 ---
@@ -39,13 +39,16 @@ For in-depth explanations, execution pipeline flows, and implementation guides, 
 - [Go/Rust-Style Safe Requests (`api.safe.*`)](#gorust-style-safe-requests-apisafe)
 - [Standard Schema Validation (`schema`)](#standard-schema-validation-schema)
 - [Auto-Pagination Helper (`api.paginate`)](#auto-pagination-helper-apipaginate)
+- [Smart Polling Helper (`api.poll`)](#smart-polling-helper-apipoll)
 - [Native AI & SSE Streaming (`api.stream`)](#native-ai--sse-streaming-apistream)
+- [Search Autocomplete Auto-Cancel (`cancelPrevious`)](#search-autocomplete-auto-cancel-cancelprevious)
 - [Declarative Testing Mock Adapter (`createMockAdapter`)](#declarative-testing-mock-adapter-createmockadapter)
 - [Response Caching, SWR & Persistent Storage](#response-caching-swr--persistent-storage)
   - [In-Memory LRU Cache](#1-in-memory-lru-cache)
   - [Persistent Storage (MMKV / AsyncStorage)](#2-persistent-storage-adapter-storage)
   - [Stale-While-Revalidate (SWR)](#3-stale-while-revalidate-swr)
   - [RFC 7234 Conditional Validation (ETag & 304)](#4-rfc-7234-conditional-validation-etag--304)
+  - [Declarative Cache Invalidation (`invalidate`)](#5-declarative-cache-invalidation-invalidate)
 - [Client Concurrency Throttler (`maxConcurrentRequests`)](#client-concurrency-throttler-maxconcurrentrequests)
 - [Circuit Breaker Pattern (`circuitBreaker`)](#circuit-breaker-pattern-circuitbreaker)
 - [In-Flight Request Deduplication (`dedup`)](#in-flight-request-deduplication-dedup)
@@ -53,6 +56,7 @@ For in-depth explanations, execution pipeline flows, and implementation guides, 
 - [Auth & Token Refresh Mutex (`auth`)](#auth--token-refresh-mutex-auth)
 - [Bearer Token Preset (`bearerToken`)](#bearer-token-preset-bearertoken)
 - [Path Parameter Interpolation (`pathParams`)](#path-parameter-interpolation-pathparams)
+- [Request Latency Metric (`response.durationMs`)](#request-latency-metric-responsedurationms)
 - [File Upload Helper (`api.upload`)](#file-upload-helper-apiupload)
 - [Upload & Download Progress](#upload--download-progress)
 - [Offline Request Queue (`createOfflineQueue`)](#offline-request-queue-createofflinequeue)
@@ -82,20 +86,23 @@ Traditional HTTP clients like Axios were built over a decade ago around browser 
 
 ## Feature Comparison
 
-| Feature | `react-native-fetch-client` | Axios (`axios`) | Ky (`ky`) | Native Fetch |
-| :--- | :---: | :---: | :---: | :---: |
-| **Runtime Dependencies** | **0 (Zero)** | ~4-6 | **0** | **0** |
-| **React Native New Architecture** | ✅ Native Bridgeless | ⚠️ Legacy XHR | ⚠️ Needs Polyfills | ✅ Native |
-| **Single-Flight 401 Auth Mutex** | ✅ Built-in | ❌ Manual Code | ❌ None | ❌ None |
-| **SWR Caching Strategy (0ms)** | ✅ Built-in | ❌ Needs Plugin | ❌ None | ❌ None |
-| **Persistent Storage (MMKV / Storage)** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
-| **In-Flight Request Deduplication** | ✅ Built-in | ❌ Needs Plugin | ❌ None | ❌ None |
-| **Circuit Breaker** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
-| **Auto-Pagination Helper** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
-| **Declarative Mock Adapter** | ✅ Built-in | ❌ Separate Pkg | ❌ None | ❌ None |
-| **Go/Rust Safe Requests (`api.safe`)** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
-| **Standard Schema / Zod Validation** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
-| **Offline Mutation Queue** | ✅ Built-in | ❌ None | ❌ None | ❌ None |
+| Feature | `react-native-fetch-client` | Axios (`axios`) | Native Fetch |
+| :--- | :---: | :---: | :---: |
+| **Runtime Dependencies** | **0 (Zero)** | ~4-6 | **0** |
+| **React Native New Architecture** | ✅ Native Bridgeless | ⚠️ Legacy XHR | ✅ Native |
+| **Single-Flight 401 Auth Mutex** | ✅ Built-in | ❌ Manual Code | ❌ None |
+| **SWR Caching Strategy (0ms)** | ✅ Built-in | ❌ Needs Plugin | ❌ None |
+| **Persistent Storage (MMKV / Storage)** | ✅ Built-in | ❌ None | ❌ None |
+| **In-Flight Request Deduplication** | ✅ Built-in | ❌ Needs Plugin | ❌ None |
+| **Circuit Breaker** | ✅ Built-in | ❌ None | ❌ None |
+| **Auto-Pagination Helper** | ✅ Built-in | ❌ None | ❌ None |
+| **Smart Polling Helper (`api.poll`)** | ✅ Built-in | ❌ None | ❌ None |
+| **Autocomplete Auto-Cancel (`cancelPrevious`)** | ✅ Built-in | ❌ Manual Abort | ❌ Manual Abort |
+| **Request Latency (`response.durationMs`)** | ✅ Built-in | ❌ Manual Timing | ❌ None |
+| **Declarative Mock Adapter** | ✅ Built-in | ❌ Separate Pkg | ❌ None |
+| **Go/Rust Safe Requests (`api.safe`)** | ✅ Built-in | ❌ None | ❌ None |
+| **Standard Schema / Zod Validation** | ✅ Built-in | ❌ None | ❌ None |
+| **Offline Mutation Queue** | ✅ Built-in | ❌ None | ❌ None |
 
 ---
 
@@ -299,6 +306,23 @@ Supports 4 pagination strategies: `page`, `offset`, `cursor`, and RFC 5988/8288 
 
 ---
 
+## Smart Polling Helper (`api.poll`)
+
+Poll asynchronous jobs (such as payment processing, background export generation, or order fulfillment) until a predicate matches:
+
+```typescript
+const payment = await api.poll<PaymentStatus>('/orders/123/status', {
+  interval: 1000,    // Poll every 1s
+  timeout: 30000,    // Throw TimeoutError after 30s
+  backoff: 1.5,      // Optional exponential backoff multiplier
+  until: (res) => res.data.status === 'COMPLETED',
+});
+
+console.log('Payment finalized:', payment.data.transactionId);
+```
+
+---
+
 ## Native AI & SSE Streaming (`api.stream`)
 
 Consume Server-Sent Events (SSE) and AI LLM token streams (OpenAI, Anthropic, Gemini, Ollama) using native async generators:
@@ -318,6 +342,20 @@ for await (const chunk of eventStream) {
   const parsed = JSON.parse(chunk.data);
   process.stdout.write(parsed.choices[0]?.delta?.content ?? '');
 }
+```
+
+---
+
+## Search Autocomplete Auto-Cancel (`cancelPrevious`)
+
+Eliminate race conditions in search inputs. If a user types quickly (`"a" -> "ap" -> "app"`), older in-flight requests in the same cancellation group are automatically aborted:
+
+```typescript
+// Rapidly typing new queries cancels the previous search request automatically:
+const searchResults = await api.get('/search', {
+  params: { q: text },
+  cancelPrevious: 'user-search', // Shared group key
+});
 ```
 
 ---
@@ -430,6 +468,18 @@ const api = createClient({
 });
 ```
 
+### 5. Declarative Cache Invalidation (`invalidate`)
+Purge related collection endpoints from the cache whenever an individual entity is created, updated, or deleted:
+
+```typescript
+// Mutating /users/42 automatically invalidates both /users/42 AND the /users list cache:
+await api.put('/users/42', { name: 'Alice' }, {
+  cache: {
+    invalidate: ['/users'], // Accepts route strings or RegExp patterns
+  },
+});
+```
+
 ---
 
 ## Client Concurrency Throttler (`maxConcurrentRequests`)
@@ -530,6 +580,8 @@ const api = createClient({
       currentAccessToken = data.access_token;
       return currentAccessToken;
     },
+    // Optional proactive refresh: Refresh token BEFORE dispatching if already expired!
+    isExpired: () => Date.now() > tokenExpiresAt,
     refreshOn: [401],
     refreshExcludeUrls: ['/oauth/refresh', '/auth/login'],
     headerName: 'Authorization',
@@ -565,6 +617,17 @@ await api.get('/orgs/:orgId/projects/{projectId}/items/:itemId', {
     itemId: 'item#456', // Auto-encoded to item%23456
   },
 });
+```
+
+---
+
+## Request Latency Metric (`response.durationMs`)
+
+Track network roundtrip durations out of the box for APM monitoring, Datadog, Sentry, or UI latency badges:
+
+```typescript
+const response = await api.get('/products');
+console.log(`Endpoint returned in ${response.durationMs}ms`);
 ```
 
 ---

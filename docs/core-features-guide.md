@@ -268,6 +268,79 @@ try {
 
 ---
 
+## 🚫 Autocomplete Auto-Cancel (`cancelPrevious`)
+
+In search inputs or filter forms, fast typing can cause race conditions: an earlier slow query might resolve *after* a newer one, displaying outdated results.
+
+Pass `cancelPrevious: '<groupKey>'` to automatically cancel any pending request in that group whenever a new one starts:
+
+```typescript
+// Typing "ca" -> "cat" -> "cats":
+// Each new keystroke automatically cancels the prior in-flight request!
+const searchUsers = async (query: string) => {
+  try {
+    const res = await api.get('/users/search', {
+      params: { q: query },
+      cancelPrevious: 'user-search', // Shared cancellation group
+    });
+    return res.data;
+  } catch (err) {
+    if (isCancelError(err)) {
+      // Safely ignore superseded queries
+      return null;
+    }
+    throw err;
+  }
+};
+```
+
+---
+
+## 🔄 Smart Polling (`api.poll`)
+
+Instead of writing custom `setInterval` loops with timeout bookkeeping, use `api.poll()` to query an endpoint until a condition is met:
+
+```typescript
+interface ExportJob {
+  id: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  downloadUrl?: string;
+}
+
+const job = await api.poll<ExportJob>('/reports/jobs/export-881', {
+  interval: 1000,   // Poll every 1 second
+  timeout: 45_000,  // Throw TimeoutError if not completed within 45s
+  backoff: 1.25,    // Progressively back off polling interval (1s -> 1.25s -> 1.56s)
+  until: (res) => res.data.status === 'COMPLETED' || res.data.status === 'FAILED',
+});
+
+if (job.data.status === 'COMPLETED') {
+  console.log('Download ready:', job.data.downloadUrl);
+}
+```
+
+---
+
+## ⏱️ Request Latency Metrics (`response.durationMs`)
+
+Every `HttpResponse` object includes `durationMs` measuring total roundtrip time from start to finish. This works across normal network calls, in-memory cache hits, and 304 conditional validations:
+
+```typescript
+const res = await api.get('/dashboard/analytics');
+
+console.log(`Latency: ${res.durationMs}ms`);
+console.log(`Served from cache: ${res.cached}`);
+
+// Easily send latency metrics to your telemetry (Sentry, Datadog, etc.)
+analytics.track('api_latency', {
+  endpoint: res.config.url,
+  durationMs: res.durationMs,
+  cached: res.cached,
+});
+```
+
+---
+
 ## 🚨 Error Hierarchy & Type Guards
 
 All errors thrown inherit from `FetchNativeError` and provide helper type guards:

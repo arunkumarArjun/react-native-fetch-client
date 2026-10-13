@@ -9,11 +9,11 @@ Welcome to the comprehensive developer documentation for **`react-native-fetch-c
 | Guide | Description |
 | :--- | :--- |
 | **[1. Architecture & Execution Flow](./architecture-flow.md)** | Comprehensive step-by-step trace of how requests move through the 16-stage pipeline. |
-| **[2. Core Features & Usage Guide](./core-features-guide.md)** | Client initialization, HTTP methods, path params, form encoding, safe requests, and unwrap options. |
-| **[3. Caching & Stale-While-Revalidate](./caching-and-swr.md)** | In-memory LRU, persistent storage adapters (MMKV / AsyncStorage), ETag / 304, and SWR strategy. |
+| **[2. Core Features & Usage Guide](./core-features-guide.md)** | Client initialization, HTTP methods, path params, form encoding, safe requests, polling, search auto-cancel, and latency tracking. |
+| **[3. Caching & Stale-While-Revalidate](./caching-and-swr.md)** | In-memory LRU, persistent storage adapters (MMKV / AsyncStorage), ETag / 304, declarative invalidation, and SWR strategy. |
 | **[4. Resilience, Retries & Offline Queue](./resilience-and-offline.md)** | Exponential backoff, jitter, circuit breaker, concurrency limiter, request dedup, and offline replay queue. |
 | **[5. Streaming, AI & File Uploads](./streaming-and-uploads.md)** | SSE / AI LLM token streams, WHATWG streams, file uploads, and upload/download progress metrics. |
-| **[6. Authentication & Security](./auth-and-security.md)** | Bearer presets, single-flight 401 refresh mutex, token rotation, and header redaction. |
+| **[6. Authentication & Security](./auth-and-security.md)** | Bearer presets, single-flight 401 refresh mutex, proactive token expiry, token rotation, and header redaction. |
 | **[7. Auto-Pagination Helper](./auto-pagination.md)** | Stream and collect paginated APIs (`page`, `offset`, `cursor`, RFC 5988/8288 `Link` headers). |
 | **[8. Testing & Mock Adapter](./testing-and-mocking.md)** | Zero-dependency declarative test mocking (`createMockAdapter`), route stubbing, error simulations, and history inspection. |
 

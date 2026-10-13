@@ -153,6 +153,9 @@ const response = await api.get<Post>('/posts/1', {
       // Update UI state with fresh data
       setPost(updatedResponse.data);
     },
+    onRevalidationError: (err) => {
+      console.warn('Background revalidation failed, keeping stale data:', err);
+    },
   },
 });
 
@@ -204,4 +207,16 @@ await api.cache.persist();
 
 ### Automatic Mutation Invalidation
 When an update or deletion occurs via `POST`, `PUT`, `PATCH`, or `DELETE`, the client automatically invalidates related cached GET routes for the matching resource path to prevent stale data displays.
+
+### Declarative Invalidation (`invalidate`)
+Updating a single resource (e.g. `PUT /users/42`) won't automatically know to invalidate collection queries (like `/users` or `/users?page=1`). Use `cache.invalidate` to declare related routes to purge upon mutation success:
+
+```typescript
+// Mutate single entity and purge associated lists from cache:
+await api.put('/users/42', { name: 'Alice' }, {
+  cache: {
+    invalidate: ['/users', '/dashboard/members'], // Accepts exact path strings or RegExp patterns
+  },
+});
+```
 

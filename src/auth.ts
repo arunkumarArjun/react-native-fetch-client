@@ -32,6 +32,17 @@ export class AuthManager {
       return;
     }
 
+    if (this.config.isExpired && this.config.refreshToken) {
+      try {
+        const expired = await this.config.isExpired();
+        if (expired) {
+          await this.refresh();
+        }
+      } catch {
+        // Fall back to attempting request with existing token
+      }
+    }
+
     const token = await this.config.getToken();
     if (!token) {
       return;

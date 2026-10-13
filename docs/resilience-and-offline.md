@@ -204,3 +204,54 @@ console.log(`Replay complete: ${summary.succeeded} succeeded, ${summary.remainin
 ### Automatic Idempotency Keys
 Every enqueued request automatically receives an RFC-compliant `Idempotency-Key` header (`uuid-v4` format). Even if an offline replay is interrupted by a brief disconnect, the server can safely deduplicate the request without creating duplicate records.
 
+---
+
+## 5. Smart Polling Engine (`api.poll`)
+
+Long-running backend operations (such as payment verification, export jobs, or AI inference tasks) often require polling an endpoint until a terminal state is reached. Rather than managing manual `setInterval` timers, cleanup handles, and error counters, `api.poll()` wraps polling in a resilient, declarative method.
+
+### Example: Polling an Export Job
+```typescript
+import { createClient } from 'react-native-fetch-client';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+
+interface JobStatus {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  downloadUrl?: string;
+}
+
+try {
+  const result = await api.poll<JobStatus>('/jobs/exp_9981', {
+    interval: 1500,     // Poll every 1.5 seconds
+    timeout: 30_000,    // Fail if not resolved in 30 seconds
+    backoff: 'linear',  // 'fixed' | 'linear' | 'exponential'
+    maxInterval: 5000,  // Cap maximum polling delay
+    until: (res) => res.data.status === 'completed' || res.data.status === 'failed',
+  });
+
+  if (result.data.status === 'completed') {
+    console.log('Export ready:', result.data.downloadUrl);
+  } else {
+    console.error('Job failed remotely');
+  }
+} catch (err) {
+  if (isTimeoutError(err)) {
+    console.warn('Polling exceeded 30 seconds without reaching terminal status.');
+  }
+}
+```
+
+### Polling Options Reference
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `interval` | `number` | `1000` | Delay in milliseconds between consecutive poll attempts |
+| `timeout` | `number` | `30000` | Maximum total duration in milliseconds before rejecting with `TimeoutError` |
+| `until` | `(response: HttpResponse<T>) => boolean` | *(required)* | Predicate function returning `true` when polling should finish successfully |
+| `backoff` | `'fixed' \| 'linear' \| 'exponential'` | `'fixed'` | Growth rate applied to `interval` across consecutive poll attempts |
+| `maxInterval` | `number` | `10000` | Upper ceiling limit on polling interval delay |
+| `signal` | `AbortSignal` | `undefined` | Optional cancellation signal to abort polling prematurely |
+
+

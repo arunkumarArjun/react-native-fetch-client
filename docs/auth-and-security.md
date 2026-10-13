@@ -127,6 +127,33 @@ const api = createClient({
 });
 ```
 
+### ⚡ Proactive Token Refresh (`isExpired`)
+
+By default, token refresh is **reactive**—the client waits for the backend to return `401 Unauthorized` before pausing requests and invoking `refreshToken()`.
+
+If your tokens contain expiration timestamps or you maintain session expiry locally, you can provide `isExpired`. The client checks this *before* dispatching the request. If the token is already expired or within a safety buffer (e.g. 30 seconds before expiry), `refreshToken()` runs proactively, avoiding the failed 401 roundtrip completely:
+
+```typescript
+let tokenExpiresAt = Date.now() + 15 * 60 * 1000; // 15-minute token
+
+const api = createClient({
+  baseURL: 'https://api.example.com',
+  auth: {
+    getToken: async () => await SecureStore.getItemAsync('access_token'),
+
+    // Proactively refresh if less than 30 seconds remain
+    isExpired: () => Date.now() > tokenExpiresAt - 30_000,
+
+    refreshToken: async () => {
+      const { token, expiresIn } = await fetchNewAccessToken();
+      tokenExpiresAt = Date.now() + expiresIn * 1000;
+      await SecureStore.setItemAsync('access_token', token);
+      return token;
+    },
+  },
+});
+```
+
 ---
 
 ## 🛡️ 3. Security & Data Protection

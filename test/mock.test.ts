@@ -84,4 +84,3 @@ describe('Declarative Testing Mock Adapter (createMockAdapter)', () => {
     expect(mock.history.all.length).toBe(0);
   });
 });
-

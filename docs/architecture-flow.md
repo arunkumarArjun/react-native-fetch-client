@@ -69,9 +69,10 @@ sequenceDiagram
 ## 🔬 Stage-by-Stage Breakdown
 
 ### Stage 1: Client Entry & Options Merging
-* **File Reference**: [`src/client.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/client.ts)
+* **File Reference**: [`src/client.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/client.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
 * When you invoke `api.get(url, config)` or `api.post(url, body, config)`, the client delegates to `api.request({ ...config, url, method, body })`.
 * Default client configurations (`baseURL`, `timeout`, `retry`, `cache`, `headers`) are merged with per-request overrides. Per-request overrides take precedence.
+* **Cancellation Group Interception (`cancelPrevious`)**: If `cancelPrevious` is supplied, any existing in-flight request sharing the same group key is automatically aborted with `CancelError`.
 
 ### Stage 2: URL Normalization & Parameter Interpolation
 * **File Reference**: [`src/url.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/url.ts)
@@ -99,9 +100,10 @@ sequenceDiagram
 
 ### Stage 5: Authentication & Bearer Provider
 * **File Reference**: [`src/auth.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/auth.ts)
-* If `bearerToken` is specified:
+* **Proactive Token Refresh**: If `isExpired` is configured and returns true, `refreshToken()` runs proactively before sending, avoiding an initial 401 error roundtrip.
+* **Bearer Injection**:
   * Static string: `Authorization: Bearer <token>` is injected if not already present.
-  * Async getter `() => Promise<string>`: The token is evaluated asynchronously before sending.
+  * Async getter `() => Promise<string>`: Evaluates asynchronously per-request.
 
 ### Stage 6: Circuit Breaker Inspection
 * **File Reference**: [`src/circuit-breaker.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/circuit-breaker.ts)
@@ -114,7 +116,7 @@ sequenceDiagram
 * **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
 * If the request is a cacheable method (`GET` or `HEAD`):
   * **Fresh Hit**: Returns cached `HttpResponse` instantly (0ms, `cached: true`).
-  * **Stale Hit (SWR Strategy)**: If `strategy: 'stale-while-revalidate'`, returns stale response immediately (0ms, `cached: true, stale: true`) and quietly dispatches background revalidation. When background fetch finishes, the `onRevalidated` callback triggers with fresh data.
+  * **Stale Hit (SWR Strategy)**: If `strategy: 'stale-while-revalidate'`, returns stale response immediately (0ms, `cached: true, stale: true`) and quietly dispatches background revalidation. When background fetch finishes, `onRevalidated` triggers with fresh data (or `onRevalidationError` if it fails).
   * **ETag Validation**: If an ETag exists for the URL, the client attaches `If-None-Match: <etag>`. If the server returns `304 Not Modified`, the cached body is reused without re-downloading bytes.
 
 ### Stage 8: In-Flight Request Deduplication
@@ -133,9 +135,9 @@ sequenceDiagram
   * Retries only safe idempotent methods unless explicitly overridden.
 
 ### Stage 10: WHATWG Fetch Transport & Progress
-* **File Reference**: [`src/progress.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/progress.ts)
+* **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
 * Connects using `globalThis.fetch` (or custom `fetchImpl`).
-* If `onUploadProgress` is provided, requests are wrapped in readable byte streams calculating loaded/total progress metrics.
+* If `onUploadProgress` or `onDownloadProgress` is provided, requests and responses are monitored calculating loaded/total byte progress metrics.
 * Supports caller abort via standard `AbortController.signal` or client `timeout`.
 
 ### Stage 11: Single-Flight 401 Token Refresh Mutex
@@ -148,7 +150,7 @@ sequenceDiagram
 ### Stage 12: Body Parsing
 * **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts)
 * Automatically determines response body format based on `responseType` option or `content-type` header:
-  * `json`: Parsed JSON object/array.
+  * `json`: Parsed JSON object/array (safely returns null on empty bodies).
   * `text`: Plain text string.
   * `blob`: Binary Blob.
   * `arrayBuffer`: ArrayBuffer binary buffer.
@@ -164,13 +166,14 @@ sequenceDiagram
 * **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts)
 * **Writing Cache**: Successful GET responses are saved in the in-memory LRU cache and serialized to `storage` (if persistent storage adapter is provided).
 * **Automatic Invalidation**: Successful mutation requests (`POST`, `PUT`, `PATCH`, `DELETE`) automatically invalidate matching path cache entries.
+* **Declarative Invalidation**: Custom routes or RegExp patterns listed in `cache.invalidate` are purged immediately upon mutation success.
 
 ### Stage 15: Response Interceptors
 * **File Reference**: [`src/interceptor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/interceptor.ts)
 * Registered response interceptors run sequentially (`api.interceptors.response.use(...)`), allowing global response transformations or unified error logging.
 
 ### Stage 16: Response Output Modes
-* **Full Envelope**: Standard mode returns `HttpResponse<T>` containing `data`, `status`, `statusText`, `headers`, `cached`, `stale`, and `fromDedup`.
+* **Full Envelope**: Standard mode returns `HttpResponse<T>` containing `data`, `status`, `statusText`, `headers`, `durationMs`, `cached`, `stale`, and `fromDedup`.
 * **Unwrap (`unwrap: true`)**: Direct resolution of `response.data`.
 * **Safe Tuples (`api.safe.*`)**: Returns `[data, null]` on success or `[null, error]` on failure (Go / Rust style).
 

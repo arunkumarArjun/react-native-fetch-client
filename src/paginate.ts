@@ -134,10 +134,7 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
         } else if (res.data && typeof res.data === 'object') {
           const obj = res.data as Record<string, unknown>;
           currentCursor = (obj['nextCursor'] ?? obj['next_cursor'] ?? obj['cursor']) as
-            | string
-            | number
-            | null
-            | undefined;
+            string | number | null | undefined;
         } else {
           currentCursor = null;
         }

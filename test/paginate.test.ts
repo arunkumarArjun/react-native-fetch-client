@@ -4,7 +4,8 @@ import { parseNextLinkHeader } from '../src/paginate.js';
 
 describe('Auto-Pagination Traverser (api.paginate)', () => {
   it('parses standard RFC 5988 / 8288 Link headers for rel="next"', () => {
-    const header = '<https://api.example.com/items?page=2>; rel="next", <https://api.example.com/items?page=5>; rel="last"';
+    const header =
+      '<https://api.example.com/items?page=2>; rel="next", <https://api.example.com/items?page=5>; rel="last"';
     expect(parseNextLinkHeader(header)).toBe('https://api.example.com/items?page=2');
     expect(parseNextLinkHeader('<https://api.example.com/items?page=1>; rel="prev"')).toBeNull();
     expect(parseNextLinkHeader(undefined)).toBeNull();
@@ -12,8 +13,18 @@ describe('Auto-Pagination Traverser (api.paginate)', () => {
 
   it('iterates through page-based pagination using async generator', async () => {
     const mockPages: Record<number, { items: Array<{ id: number; name: string }> }> = {
-      1: { items: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }] },
-      2: { items: [{ id: 3, name: 'Charlie' }, { id: 4, name: 'David' }] },
+      1: {
+        items: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ],
+      },
+      2: {
+        items: [
+          { id: 3, name: 'Charlie' },
+          { id: 4, name: 'David' },
+        ],
+      },
       3: { items: [{ id: 5, name: 'Eve' }] },
     };
 
@@ -32,12 +43,15 @@ describe('Auto-Pagination Traverser (api.paginate)', () => {
     const client = createClient({ fetchImpl: mockFetch });
     const collected: Array<{ id: number; name: string }> = [];
 
-    for await (const user of client.paginate<{ id: number; name: string }>('http://api.local/users', {
-      pagination: {
-        type: 'page',
-        pageSize: 2,
+    for await (const user of client.paginate<{ id: number; name: string }>(
+      'http://api.local/users',
+      {
+        pagination: {
+          type: 'page',
+          pageSize: 2,
+        },
       },
-    })) {
+    )) {
       collected.push(user);
     }
 
@@ -95,11 +109,14 @@ describe('Auto-Pagination Traverser (api.paginate)', () => {
     const client = createClient({ fetchImpl: mockFetch });
     const pages: number[] = [];
 
-    for await (const page of client.paginate.pages<{ page: number; data: string[] }>('http://api.local/feed', {
-      pagination: {
-        maxPages: 3,
+    for await (const page of client.paginate.pages<{ page: number; data: string[] }>(
+      'http://api.local/feed',
+      {
+        pagination: {
+          maxPages: 3,
+        },
       },
-    })) {
+    )) {
       pages.push(page.data.page);
     }
 

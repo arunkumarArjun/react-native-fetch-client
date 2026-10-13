@@ -55,6 +55,7 @@ export type {
   MockHandler,
   MockReplyCallback,
   MockHistoryItem,
+  PollOptions,
 } from './types.js';
 
 // Error classes and type guards — stable API surface

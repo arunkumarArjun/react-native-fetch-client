@@ -1,0 +1,48 @@
+name: Bug Report
+description: Create a report to help us improve react-native-fetch-client
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below.
+  - type: input
+    id: version
+    attributes:
+      label: react-native-fetch-client version
+      placeholder: "e.g. 0.1.3"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - React Native (Bare)
+        - Expo (Managed)
+        - Web Browser (Chrome/Safari/Firefox)
+        - Node.js (v18/20/22)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce / Minimal Code Example
+      description: Please share a short code snippet reproducing the problem.
+      render: typescript
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true

@@ -23,7 +23,14 @@
   "bugs": {
     "url": "https://github.com/arunkumarArjun/react-native-fetch-client/issues"
   },
-
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/arunkumarArjun/react-native-fetch-client"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
@@ -47,7 +54,9 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md"
   ],
   "scripts": {
     "build": "tsup",

@@ -5,6 +5,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
+[![Socket.dev Security](https://badge.socket.dev/npm/react-native-fetch-client.svg)](https://socket.dev/npm/package/react-native-fetch-client)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-brightgreen.svg)](SECURITY.md)
 [![TypeScript & JavaScript](https://img.shields.io/badge/Languages-TypeScript%20%7C%20JavaScript-blue)](https://www.typescriptlang.org/)
 [![Runtime Dependencies](https://img.shields.io/badge/Dependencies-0-success.svg)](package.json)
 [![Tests: 193 passing](https://img.shields.io/badge/Tests-193%20Passing-brightgreen.svg)](test)
@@ -770,6 +772,16 @@ Switching from Axios takes only a few minutes. Most method signatures are identi
 | `axios-retry` (plugin) | `client = createClient({ retry: {...} })` | Built-in |
 | `axios-cache-interceptor` (plugin) | `client = createClient({ cache: {...} })` | Built-in |
 | `axios-mock-adapter` (package) | `mock = createMockAdapter(client)` | Built-in |
+
+---
+
+## Security
+
+For security vulnerability reporting, please see [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ---
 

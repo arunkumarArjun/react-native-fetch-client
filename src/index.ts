@@ -90,7 +90,7 @@ export { CircuitBreaker } from './circuit-breaker.js';
 export { ConcurrencyLimiter } from './concurrency.js';
 export { validateData } from './validator.js';
 export { parseSseStream } from './stream.js';
-export { buildUrl, interpolatePath } from './url.js';
+export { buildUrl, interpolatePath, isAbsoluteUrl } from './url.js';
 export { createPaginateHelper, parseNextLinkHeader } from './paginate.js';
 export { createMockAdapter } from './mock.js';
 

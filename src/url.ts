@@ -49,6 +49,47 @@ export function interpolatePath(url: string, pathParams?: PathParams): string {
 }
 
 /**
+ * Checks whether a URL is absolute (protocol-relative or has a valid URI scheme followed by `://`).
+ * Implemented without backtracking regular expressions to prevent ReDoS (CWE-1333).
+ *
+ * @param url The URL string to test.
+ * @returns True if the URL is absolute or protocol-relative.
+ */
+export function isAbsoluteUrl(url: string): boolean {
+  if (url.startsWith('//')) {
+    return true;
+  }
+  const colonIndex = url.indexOf(':');
+  if (colonIndex > 0 && url.slice(colonIndex, colonIndex + 3) === '://') {
+    const scheme = url.slice(0, colonIndex);
+    return /^[a-zA-Z][a-zA-Z0-9+\-.]*$/.test(scheme);
+  }
+  return false;
+}
+
+/**
+ * Strips leading forward slashes without regex backtracking.
+ */
+function trimLeadingSlashes(str: string): string {
+  let start = 0;
+  while (start < str.length && str.charCodeAt(start) === 47 /* '/' */) {
+    start++;
+  }
+  return str.slice(start);
+}
+
+/**
+ * Strips trailing forward slashes without regex backtracking.
+ */
+function trimTrailingSlashes(str: string): string {
+  let end = str.length;
+  while (end > 0 && str.charCodeAt(end - 1) === 47 /* '/' */) {
+    end--;
+  }
+  return str.slice(0, end);
+}
+
+/**
  * Builds a resolved URL from a base URL, a relative/absolute URL, query parameters,
  * and path parameters.
  *
@@ -68,9 +109,9 @@ export function buildUrl(
   let resolvedUrl = interpolatePath(url, pathParams);
 
   // Step 2: Resolve base URL if provided and url is not already absolute
-  if (baseURL && !/^([a-z][a-z0-9+\-.]*:)?\/\//i.test(resolvedUrl)) {
-    const cleanBase = baseURL.replace(/\/+$/, '');
-    const cleanPath = resolvedUrl.replace(/^\/+/, '');
+  if (baseURL && !isAbsoluteUrl(resolvedUrl)) {
+    const cleanBase = trimTrailingSlashes(baseURL);
+    const cleanPath = trimLeadingSlashes(resolvedUrl);
     resolvedUrl = cleanPath ? `${cleanBase}/${cleanPath}` : cleanBase;
   }
 

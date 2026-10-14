@@ -13,10 +13,11 @@ We actively support and provide security patches for the following versions:
 
 The `react-native-fetch-client` team takes supply chain and application security seriously. If you discover a security vulnerability, please **DO NOT** open a public issue.
 
-Instead, please report it through one of the following channels:
+Instead, please report it securely through **GitHub Private Vulnerability Reporting**:
 
-1. **GitHub Private Vulnerability Reporting**: Submit a private advisory directly through [GitHub Security Advisories](https://github.com/arunkumarArjun/react-native-fetch-client/security/advisories/new).
-2. **Email**: Send a direct report to the project maintainer at `arunkumar.arjunan@gmail.com` with the subject `[SECURITY] react-native-fetch-client vulnerability`.
+👉 **[Submit a Private Security Advisory](https://github.com/arunkumarArjun/react-native-fetch-client/security/advisories/new)**
+
+This keeps the report private, encrypted, and accessible only to the project maintainers until a fix is released.
 
 ### Please include:
 - A detailed description of the vulnerability.

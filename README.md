@@ -9,7 +9,7 @@
 [![Security Policy](https://img.shields.io/badge/Security-Policy-brightgreen.svg)](SECURITY.md)
 [![TypeScript & JavaScript](https://img.shields.io/badge/Languages-TypeScript%20%7C%20JavaScript-blue)](https://www.typescriptlang.org/)
 [![Runtime Dependencies](https://img.shields.io/badge/Dependencies-0-success.svg)](package.json)
-[![Tests: 193 passing](https://img.shields.io/badge/Tests-193%20Passing-brightgreen.svg)](test)
+[![Tests: 203 passing](https://img.shields.io/badge/Tests-203%20Passing-brightgreen.svg)](test)
 [![Expo & React Native](https://img.shields.io/badge/React%20Native-Bridgeless%20%26%20New%20Arch%20Ready-success.svg)](https://reactnative.dev)
 
 ---
@@ -764,8 +764,11 @@ Switching from Axios takes only a few minutes. Most method signatures are identi
 
 | Axios | `react-native-fetch-client` | Notes |
 | :--- | :--- | :--- |
+| `import axios from 'axios'` | `import client from 'react-native-fetch-client'` | Default instance ready to use |
 | `axios.get(url, config)` | `client.get(url, config)` | Identical |
 | `axios.post(url, data, config)` | `client.post(url, data, config)` | Identical |
+| `axios.delete(url, config)` | `client.delete(url)` or `client.del(url)` | Identical + `.del()` alias |
+| `axios.create({ baseURL })` | `createClient({ baseURL })` or `client.create({ baseUrl })` | Supports both `baseURL` and `baseUrl` |
 | `res.data` | `res.data` | Identical |
 | `axios.interceptors.request.use()` | `client.interceptors.request.use()` | Identical |
 | `axios.isAxiosError(err)` | `isHttpError(err)` or `isFetchNativeError(err)` | Type-safe guards |

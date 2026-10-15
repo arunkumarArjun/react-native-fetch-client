@@ -284,6 +284,8 @@ export interface RequestConfig {
    * Overrides the client-level baseURL for this request only.
    */
   baseURL?: string;
+  /** Alias for baseURL. */
+  baseUrl?: string;
   /**
    * HTTP headers. Merged with client-level defaults; per-request values win.
    * Header names are case-insensitive.
@@ -441,6 +443,8 @@ export interface ClientConfig extends Omit<
    * Must not include a trailing slash (enforced at runtime with a warning).
    */
   baseURL?: string;
+  /** Alias for baseURL. */
+  baseUrl?: string;
   /**
    * Default timeout for all requests in milliseconds. Default: 0 (no timeout).
    */
@@ -898,6 +902,8 @@ export interface SafeHttpClient {
   ): Promise<SafeResult<T>>;
   /** Send a safe DELETE request. */
   delete<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
+  /** Alias for delete. */
+  del<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
   /** Send a safe request with arbitrary method. */
   request<T = unknown>(
     config: RequestConfig & { url: string; method: HttpMethod },
@@ -1114,6 +1120,11 @@ export interface HttpClient {
    */
   delete<T = unknown>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
   /**
+   * Alias for `delete()`.
+   * @template T Expected type of the parsed response body.
+   */
+  del<T = unknown>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
+  /**
    * Send a request with full configuration control.
    * All other methods delegate to this.
    */
@@ -1166,4 +1177,18 @@ export interface PollOptions<T = unknown> extends RequestConfig {
   until: (response: HttpResponse<T>) => boolean | Promise<boolean>;
   /** Optional backoff multiplier for interval growth (e.g. 1.5). Default: 1 (fixed interval). */
   backoff?: number;
+}
+
+/**
+ * Pre-instantiated default HTTP client instance with `create` factory methods.
+ */
+export interface DefaultHttpClient extends HttpClient {
+  /**
+   * Factory function to create custom isolated `HttpClient` instances.
+   */
+  create: (config?: ClientConfig) => HttpClient;
+  /**
+   * Alias for `create()`.
+   */
+  createClient: (config?: ClientConfig) => HttpClient;
 }

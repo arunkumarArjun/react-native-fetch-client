@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createClient } from '../src/client.js';
+import defaultClient, { createClient } from '../src/index.js';
 import type { ProgressEvent } from '../src/types.js';
 
 describe('Axios Parity Features', () => {
@@ -202,6 +202,92 @@ describe('Axios Parity Features', () => {
         responseType: 'text',
       });
       expect(capturedDispatcher).toBe(customDispatcher);
+    });
+  });
+
+  describe('baseUrl and baseURL Flexibility', () => {
+    it('accepts baseUrl (lowercase) at client level', async () => {
+      let requestedUrl = '';
+      const mockFetch = vi.fn().mockImplementation((req: Request) => {
+        requestedUrl = req.url;
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      });
+
+      const client = createClient({
+        baseUrl: 'https://api.example.com/v1',
+        fetchImpl: mockFetch,
+      });
+
+      await client.get('/products');
+      expect(requestedUrl).toBe('https://api.example.com/v1/products');
+    });
+
+    it('accepts baseUrl (lowercase) at per-request level overriding client config', async () => {
+      let requestedUrl = '';
+      const mockFetch = vi.fn().mockImplementation((req: Request) => {
+        requestedUrl = req.url;
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      });
+
+      const client = createClient({
+        baseURL: 'https://api.default.com',
+        fetchImpl: mockFetch,
+      });
+
+      await client.get('/override', { baseUrl: 'https://api.override.com' });
+      expect(requestedUrl).toBe('https://api.override.com/override');
+    });
+  });
+
+  describe('del() Alias for delete()', () => {
+    it('executes DELETE request using client.del()', async () => {
+      let requestedMethod = '';
+      const mockFetch = vi.fn().mockImplementation((req: Request) => {
+        requestedMethod = req.method;
+        return Promise.resolve(new Response(JSON.stringify({ deleted: true }), { status: 200 }));
+      });
+
+      const client = createClient({ fetchImpl: mockFetch });
+      const res = await client.del('http://localhost/item/1');
+
+      expect(requestedMethod).toBe('DELETE');
+      expect(res.status).toBe(200);
+      expect(res.data).toEqual({ deleted: true });
+    });
+
+    it('executes safe DELETE request using client.safe.del()', async () => {
+      let requestedMethod = '';
+      const mockFetch = vi.fn().mockImplementation((req: Request) => {
+        requestedMethod = req.method;
+        return Promise.resolve(new Response(JSON.stringify({ deleted: true }), { status: 200 }));
+      });
+
+      const client = createClient({ fetchImpl: mockFetch });
+      const [data, err] = await client.safe.del('http://localhost/item/2');
+
+      expect(requestedMethod).toBe('DELETE');
+      expect(err).toBeNull();
+      expect(data).toEqual({ deleted: true });
+    });
+  });
+
+  describe('Default Client Export and Factory Alias', () => {
+    it('provides a default pre-instantiated client instance', () => {
+      expect(defaultClient).toBeDefined();
+      expect(typeof defaultClient.get).toBe('function');
+      expect(typeof defaultClient.post).toBe('function');
+      expect(typeof defaultClient.del).toBe('function');
+      expect(typeof defaultClient.delete).toBe('function');
+      expect(typeof defaultClient.safe.del).toBe('function');
+    });
+
+    it('allows client.create() identical to axios.create()', () => {
+      expect(typeof defaultClient.create).toBe('function');
+      expect(typeof defaultClient.createClient).toBe('function');
+
+      const custom = defaultClient.create({ baseURL: 'https://api.test.com' });
+      expect(typeof custom.get).toBe('function');
+      expect(typeof custom.post).toBe('function');
     });
   });
 });

@@ -272,7 +272,7 @@ async function executeRequestInternal<T = unknown>(
   const startTime = Date.now();
   const urlStr = config.url ?? '';
   const method = config.method ?? 'GET';
-  const baseURL = config.baseURL ?? clientConfig.baseURL;
+  const baseURL = config.baseURL ?? config.baseUrl ?? clientConfig.baseURL ?? clientConfig.baseUrl;
   const params = { ...clientConfig.params, ...config.params };
   const pathParams = config.pathParams;
 

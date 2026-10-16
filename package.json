@@ -19,7 +19,7 @@
     "type": "git",
     "url": "git+https://github.com/arunkumarArjun/react-native-fetch-client.git"
   },
-  "homepage": "https://github.com/arunkumarArjun/react-native-fetch-client#readme",
+  "homepage": "https://react-native-fetch-client.vercel.app/",
   "bugs": {
     "url": "https://github.com/arunkumarArjun/react-native-fetch-client/issues"
   },

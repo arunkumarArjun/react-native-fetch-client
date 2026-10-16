@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-10-16
+
+### Added
+
+- **Axios Parity & DX Enhancements**: Added default client instance export (`import client from 'react-native-fetch-client'`), `baseUrl` option alias (in addition to `baseURL`), and `api.del()` shorthand method alias for `api.delete()`.
+- **Interactive Documentation Website**: Launched official interactive documentation and playground at [https://react-native-fetch-client.vercel.app/](https://react-native-fetch-client.vercel.app/).
+- **GitHub Community Standards**: Added PR template (`.github/pull_request_template.md`) and formal Accessibility Statement (`ACCESSIBILITY.md`).
+
+### Fixed & Tested
+
+- **Cold Restart Recovery & Idempotency Persistence**: Verified and documented that `Idempotency-Key` headers survive cold application restarts when queued requests are hydrated from persistent storage (`MMKV`, `AsyncStorage`, etc.). Added comprehensive end-to-end recovery test suite asserting single server-side writes on replay with RFC deduplication.
+- **CI Linting & Formatting**: Fixed `@typescript-eslint/require-await` and standardized code formatting via Prettier in test suites.
+
 ## [0.1.5] - 2026-10-14
 
 ### Security

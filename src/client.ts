@@ -219,6 +219,8 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     },
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
+    del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
     request: <T = unknown>(reqConfig: RequestConfig & { url: string; method: HttpMethod }) =>
       safeRequest<T>(reqConfig),
   };
@@ -341,6 +343,8 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       return request<T>(merged);
     },
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      request<T>({ ...reqConfig, url, method: 'DELETE' }),
+    del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'DELETE' }),
     safe,
     stream,

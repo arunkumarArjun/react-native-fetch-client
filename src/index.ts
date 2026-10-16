@@ -33,6 +33,7 @@ export type {
   InterceptorManager,
   ErrorCode,
   HttpClient,
+  DefaultHttpClient,
   SafeHttpClient,
   SafeResult,
   StreamEvent,
@@ -80,8 +81,31 @@ export {
   isCircuitBreakerError,
 } from './errors.js';
 
+import { createClient } from './client.js';
+import type { DefaultHttpClient } from './types.js';
+
 // Client, Auth, Dedup, Cache, Resiliency, Streaming & Interceptors
-export { createClient } from './client.js';
+export { createClient };
+
+/**
+ * Pre-instantiated default HTTP client instance with `.create()` factory method.
+ *
+ * @example
+ * ```ts
+ * // Instant 1-liner requests:
+ * import client from 'react-native-fetch-client';
+ * const res = await client.get('https://api.example.com/items');
+ *
+ * // Create custom client identical to axios.create():
+ * const api = client.create({ baseURL: 'https://api.example.com' });
+ * ```
+ */
+const defaultClient: DefaultHttpClient = Object.assign(createClient(), {
+  create: createClient,
+  createClient,
+});
+
+export default defaultClient;
 export { AuthManager } from './auth.js';
 export { DedupManager, generateDedupKey } from './dedup.js';
 export { CacheManager, generateCacheKey, cloneData, isCacheEligible } from './cache.js';

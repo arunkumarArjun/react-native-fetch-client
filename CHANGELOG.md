@@ -5,9 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-10-14
+
+### Security
+
+- **URL Resolution (CWE-1333)**: Replaced polynomial backtracking regular expressions in `buildUrl` and `isAbsoluteUrl` with linear $O(n)$ index-based slash trimming and protocol parsing to eliminate ReDoS vulnerabilities (CodeQL `js/polynomial-redos`).
+- **CI Workflow Hardening (CWE-275)**: Configured least-privilege `permissions: { contents: read }` across GitHub Actions CI workflows.
+- **Dependency Vulnerability Remediation**: Overrode transitive `esbuild` to `0.28.2` in `package.json` to eliminate Windows dev server path traversal vulnerability. Removed obsolete `yarn.lock` to standardize on `package-lock.json`.
+
+### Added
+
+- **Exported `isAbsoluteUrl`**: Exported `isAbsoluteUrl` helper utility from root entry point to check for protocol-relative or absolute URI schemes safely.
+
+## [0.1.4] - 2026-10-14
+
+### Added
+
+- **Security & Community Governance**: Added formal `SECURITY.md` (backed by GitHub Private Vulnerability Reporting), `CODE_OF_CONDUCT.md`, and structured issue templates.
+- **Supply-Chain Integrity**: Configured npm cryptographic provenance attestation (`publishConfig.provenance = true`) via Sigstore in GitHub Actions.
+
 ## [0.1.3] - 2026-10-13
 
 ### Added
+
 - **Smart Polling Helper (`api.poll`)**: Poll asynchronous endpoints until an `until` predicate resolves to true, with configurable `interval`, `timeout`, and exponential `backoff`.
 - **Search Autocomplete Auto-Cancel (`cancelPrevious`)**: Pass a cancellation group key to automatically cancel previous in-flight requests in the group as newer queries are dispatched.
 - **Request Latency Metric (`response.durationMs`)**: Exposed elapsed roundtrip time directly on `HttpResponse` across network calls, LRU cache hits, and 304 revalidations.
@@ -18,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.2] - 2026-10-12
 
 ### Added
+
 - **Declarative Testing Mock Adapter (`createMockAdapter`)**: Zero-dependency mock adapter for route stubbing, error simulations, and call history assertions.
 - **Standard Schema v1 Support (`schema`)**: Duck-typed runtime schema validation compatible with Zod, Valibot, ArkType, and custom validator functions.
 - **RFC 7234 Conditional Validation (`etag: true`)**: Automatic tracking of `ETag` and `Last-Modified` headers, reusing cached payloads on HTTP 304 Not Modified.
@@ -26,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2026-10-10
 
 ### Added
+
 - **Persistent Offline Queue (`createOfflineQueue`)**: Queue mutations offline and sequentially replay them with RFC-standard `Idempotency-Key` headers when back online.
 - **Auto-Pagination Helper (`api.paginate`)**: Async generator streaming and `.all()` collection helper supporting `page`, `offset`, `cursor`, and `Link` headers.
 - **Native AI & SSE Streaming (`api.stream`)**: Server-Sent Events (SSE) and raw LLM token streaming via WHATWG `ReadableStream` and async generators.
@@ -35,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-10-09
 
 ### Added
+
 - Initial public release.
 - Zero runtime dependencies (`dependencies: {}`).
 - First-class TypeScript generics and dual ESM (`.mjs`) + CommonJS (`.cjs`) builds.

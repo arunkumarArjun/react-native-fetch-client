@@ -712,6 +712,11 @@ const summary = await queue.process();
 console.log(`Replay complete: ${summary.succeeded} succeeded, ${summary.remaining} remaining.`);
 ```
 
+> **🛡️ Idempotency-Key & Cold App Restarts:**
+> - The assigned `Idempotency-Key` is persisted to disk alongside the request payload and headers. It survives complete app terminations and cold restarts.
+> - **Backend Requirement:** A client header alone cannot make a non-idempotent server endpoint safe. For safe replays, your backend must implement idempotency key tracking (e.g., Stripe/IETF standard via Redis/Postgres) so that replayed requests return the existing record instead of creating duplicates.
+> - By default, payment and checkout routes (`/pay`, `/checkout`, `/order`, `/billing`) are blocked from offline queuing to prevent unsafe retries.
+
 ---
 
 ## Response Unwrapping (`unwrap: true`)

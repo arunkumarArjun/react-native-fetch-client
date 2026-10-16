@@ -318,5 +318,80 @@ describe('Offline Request Queue', () => {
       expect(await queue.size()).toBe(0);
       expect(onPermanentFailure).toHaveBeenCalledTimes(1);
     });
+
+    it('preserves the exact same Idempotency-Key across app restarts and avoids duplicate writes on replay', async () => {
+      // 1. App Session 1: User enqueues a mutation
+      const originalClient = mockClient(() => Promise.reject(new NetworkError('Connection severed mid-flight')));
+      const queueSession1 = createOfflineQueue({ client: originalClient, storage });
+
+      const enqueued = await queueSession1.enqueue({
+        url: '/items/create',
+        method: 'POST',
+        body: { item: 'Laptop', amount: 1200 },
+      });
+
+      const initialItems = await queueSession1.getItems();
+      const originalKey = initialItems[0]?.idempotencyKey;
+      expect(originalKey).toBe(enqueued.id);
+      expect(initialItems[0]?.headers?.['idempotency-key']).toBe(originalKey);
+
+      // Attempt 1 in Session 1 fails due to network drop
+      const session1Summary = await queueSession1.process();
+      expect(session1Summary.failedTransient).toBe(1);
+      expect(await queueSession1.size()).toBe(1);
+
+      // 2. Simulate Cold App Kill & Restart:
+      // Instance 1 is destroyed from memory; Instance 2 initializes from disk storage
+      const serverProcessedKeys = new Set<string>();
+      let serverDatabaseRecords = 0;
+
+      // Mock backend that implements RFC Idempotency-Key deduplication
+      const backendClient = mockClient(async (config) => {
+        const receivedKey = (config.headers as Record<string, string>)?.['idempotency-key'];
+
+        if (receivedKey && serverProcessedKeys.has(receivedKey)) {
+          // Idempotent replay: return cached 200 without creating a duplicate record
+          return createSuccessResponse({ id: 999, status: 'already_committed', deduplicated: true });
+        }
+
+        // First time processing this idempotency key
+        if (receivedKey) {
+          serverProcessedKeys.add(receivedKey);
+        }
+        serverDatabaseRecords++;
+        return createSuccessResponse({ id: 999, status: 'created', deduplicated: false });
+      });
+
+      // Simulate that the server DID commit on attempt 1 before the connection died:
+      serverProcessedKeys.add(originalKey!);
+      serverDatabaseRecords = 1;
+
+      // New App Session 2 boots up and loads the queue from storage
+      const queueSession2 = createOfflineQueue({ client: backendClient, storage });
+      await queueSession2.initialize();
+
+      // Verify the rehydrated item retains the EXACT SAME idempotency key from Session 1
+      const rehydratedItems = await queueSession2.getItems();
+      expect(rehydratedItems).toHaveLength(1);
+      expect(rehydratedItems[0]?.idempotencyKey).toBe(originalKey);
+      expect(rehydratedItems[0]?.headers?.['idempotency-key']).toBe(originalKey);
+
+      // 3. Replay from disk storage in Session 2
+      const session2Summary = await queueSession2.process();
+
+      // Expected results:
+      // - The replayed request sends the identical original key
+      // - The backend returns the cached 200 response
+      // - No second record was written (database records remains 1)
+      // - The queue successfully shifts and clears the entry
+      expect(session2Summary.succeeded).toBe(1);
+      expect(session2Summary.remaining).toBe(0);
+      expect(serverDatabaseRecords).toBe(1); // Crucial: no duplicate record written!
+      expect(await queueSession2.size()).toBe(0);
+
+      // Verify cold disk storage is also clean
+      const rawStored = storage.getItem('fnc_offline_queue');
+      expect(JSON.parse(rawStored ?? '[]')).toHaveLength(0);
+    });
   });
 });

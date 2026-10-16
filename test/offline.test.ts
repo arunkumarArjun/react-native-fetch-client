@@ -321,7 +321,9 @@ describe('Offline Request Queue', () => {
 
     it('preserves the exact same Idempotency-Key across app restarts and avoids duplicate writes on replay', async () => {
       // 1. App Session 1: User enqueues a mutation
-      const originalClient = mockClient(() => Promise.reject(new NetworkError('Connection severed mid-flight')));
+      const originalClient = mockClient(() =>
+        Promise.reject(new NetworkError('Connection severed mid-flight')),
+      );
       const queueSession1 = createOfflineQueue({ client: originalClient, storage });
 
       const enqueued = await queueSession1.enqueue({
@@ -361,7 +363,9 @@ describe('Offline Request Queue', () => {
           serverProcessedKeys.add(receivedKey);
         }
         serverDatabaseRecords++;
-        return Promise.resolve(createSuccessResponse({ id: 999, status: 'created', deduplicated: false }));
+        return Promise.resolve(
+          createSuccessResponse({ id: 999, status: 'created', deduplicated: false }),
+        );
       });
 
       // Simulate that the server DID commit on attempt 1 before the connection died:

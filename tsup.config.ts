@@ -8,6 +8,7 @@ export default defineConfig({
   clean: true,             // wipe dist/ before each build
   splitting: false,        // single-file output per format for predictable imports
   treeshake: true,
+  cjsInterop: true,
   tsconfig: 'tsconfig.build.json',
   outDir: 'dist',
   // Ensure CJS and ESM get distinct file extensions so Node can identify them

@@ -346,12 +346,14 @@ describe('Offline Request Queue', () => {
       let serverDatabaseRecords = 0;
 
       // Mock backend that implements RFC Idempotency-Key deduplication
-      const backendClient = mockClient(async (config) => {
+      const backendClient = mockClient((config) => {
         const receivedKey = (config.headers as Record<string, string>)?.['idempotency-key'];
 
         if (receivedKey && serverProcessedKeys.has(receivedKey)) {
           // Idempotent replay: return cached 200 without creating a duplicate record
-          return createSuccessResponse({ id: 999, status: 'already_committed', deduplicated: true });
+          return Promise.resolve(
+            createSuccessResponse({ id: 999, status: 'already_committed', deduplicated: true }),
+          );
         }
 
         // First time processing this idempotency key
@@ -359,7 +361,7 @@ describe('Offline Request Queue', () => {
           serverProcessedKeys.add(receivedKey);
         }
         serverDatabaseRecords++;
-        return createSuccessResponse({ id: 999, status: 'created', deduplicated: false });
+        return Promise.resolve(createSuccessResponse({ id: 999, status: 'created', deduplicated: false }));
       });
 
       // Simulate that the server DID commit on attempt 1 before the connection died:

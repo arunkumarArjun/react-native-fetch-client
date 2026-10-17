@@ -4,8 +4,8 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
-  sourcemap: false,        // no source maps in published package
-  clean: true,             // wipe dist/ before each build
+  sourcemap: true, // enable source maps for debuggability and Socket.dev source transparency
+  clean: true, // wipe dist/ before each build
   splitting: false,        // single-file output per format for predictable imports
   treeshake: true,
   cjsInterop: true,

@@ -238,10 +238,15 @@ try {
   }
 } catch (err) {
   if (isTimeoutError(err)) {
-    console.warn('Polling exceeded 30 seconds without reaching terminal status.');
+    console.warn('Polling exceeded 30 seconds without reaching terminal status (hanging requests aborted).');
+  } else if (isCancelError(err)) {
+    console.warn('Polling was cancelled by caller signal.');
   }
 }
 ```
+
+> [!NOTE]
+> `api.poll()` guarantees that in-progress network requests are cleanly aborted if the overall `timeout` is reached, preventing orphaned sockets. Additionally, aborting an `options.signal` during an inter-request delay immediately interrupts the delay without waiting for the timer to elapse.
 
 ### Polling Options Reference
 

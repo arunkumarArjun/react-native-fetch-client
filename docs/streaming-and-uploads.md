@@ -86,6 +86,12 @@ formData.append('avatar', imageBlob, 'avatar.png');
 formData.append('userId', '123');
 
 await api.upload('/users/avatar', formData);
+
+// 3. Uploading raw binary buffers & typed array views (Uint8Array, DataView, Subarrays)
+// Correctly respects byteOffset and byteLength without sending unneeded bytes
+const buffer = new Uint8Array([10, 20, 30, 40]);
+const slice = buffer.subarray(1, 3); // Uploads exactly [20, 30]
+await api.upload('/media/chunk', slice, { fileName: 'chunk.bin' });
 ```
 
 ---

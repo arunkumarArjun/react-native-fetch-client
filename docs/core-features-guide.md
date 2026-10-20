@@ -294,6 +294,9 @@ const searchUsers = async (query: string) => {
 };
 ```
 
+> [!NOTE]
+> Cancellation groups are strictly scoped to each `HttpClient` instance. Separate client instances using the same group key will never cancel each other's requests.
+
 ---
 
 ## 🔄 Smart Polling (`api.poll`)
@@ -309,7 +312,7 @@ interface ExportJob {
 
 const job = await api.poll<ExportJob>('/reports/jobs/export-881', {
   interval: 1000,   // Poll every 1 second
-  timeout: 45_000,  // Throw TimeoutError if not completed within 45s
+  timeout: 45_000,  // Throw TimeoutError if not completed within 45s (aborts hanging requests)
   backoff: 1.25,    // Progressively back off polling interval (1s -> 1.25s -> 1.56s)
   until: (res) => res.data.status === 'COMPLETED' || res.data.status === 'FAILED',
 });
@@ -318,6 +321,9 @@ if (job.data.status === 'COMPLETED') {
   console.log('Download ready:', job.data.downloadUrl);
 }
 ```
+
+> [!TIP]
+> The `timeout` option strictly enforces an overall polling deadline and immediately aborts any active in-flight request if the deadline expires. Providing an `options.signal` cancels both active requests and inter-request delays immediately.
 
 ---
 

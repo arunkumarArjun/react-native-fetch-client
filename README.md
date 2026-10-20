@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-Documentation-purple.svg)](https://react-native-fetch-client.vercel.app/)
 [![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
-[![Socket.dev Security](https://badge.socket.dev/npm/react-native-fetch-client.svg)](https://socket.dev/npm/package/react-native-fetch-client)
+[![Socket.dev Security](https://badge.socket.dev/npm/package/react-native-fetch-client)](https://socket.dev/npm/package/react-native-fetch-client)
 [![Security Policy](https://img.shields.io/badge/Security-Policy-brightgreen.svg)](SECURITY.md)
 [![TypeScript & JavaScript](https://img.shields.io/badge/Languages-TypeScript%20%7C%20JavaScript-blue)](https://www.typescriptlang.org/)
 [![Runtime Dependencies](https://img.shields.io/badge/Dependencies-0-success.svg)](package.json)

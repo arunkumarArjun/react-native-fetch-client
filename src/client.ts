@@ -518,7 +518,10 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           currentInterval = Math.round(currentInterval * backoff);
         }
       } catch (err: unknown) {
-        if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))) {
+        if (
+          timedOut ||
+          (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))
+        ) {
           throw createTimeoutError();
         }
         if (callerAborted || options.signal?.aborted) {

@@ -46,6 +46,38 @@ import type {
   PollOptions,
 } from './types.js';
 
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  const toError = (reason: unknown): Error =>
+    reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : 'Aborted');
+
+  if (signal?.aborted) {
+    return Promise.reject(toError(signal.reason));
+  }
+  if (ms <= 0) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    let onAbort: (() => void) | undefined;
+
+    const timerId = setTimeout(() => {
+      if (signal && onAbort) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, ms);
+
+    if (signal) {
+      onAbort = () => {
+        clearTimeout(timerId);
+        if (onAbort) {
+          signal.removeEventListener('abort', onAbort);
+        }
+        reject(toError(signal.reason));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
 /**
  * Creates and configures a new `HttpClient` instance.
  *
@@ -80,6 +112,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
   const authManager = new AuthManager(config.auth);
   const dedupManager = new DedupManager();
   const cacheManager = new CacheManager(config.cache);
+  const cancelGroups = new Map<string, AbortController>();
 
   const circuitBreaker = config.circuitBreaker?.enabled
     ? new CircuitBreaker(config.circuitBreaker)
@@ -130,6 +163,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         cacheManager,
         circuitBreaker,
         concurrencyLimiter,
+        cancelGroups,
       );
     } catch (err: unknown) {
       let currentError: unknown = err;
@@ -274,9 +308,11 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         } else {
           formData.append(fieldName, file);
         }
-      } else if (file instanceof ArrayBuffer || file instanceof Uint8Array) {
-        const buffer = file instanceof Uint8Array ? (file.buffer as ArrayBuffer) : file;
-        const blob = new Blob([buffer]);
+      } else if (file instanceof ArrayBuffer || ArrayBuffer.isView(file)) {
+        const blobPart = ArrayBuffer.isView(file)
+          ? new Uint8Array(file.buffer as ArrayBuffer, file.byteOffset, file.byteLength)
+          : file;
+        const blob = new Blob([blobPart]);
         if (options?.fileName) {
           formData.append(fieldName, blob, options.fileName);
         } else {
@@ -351,77 +387,151 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     upload,
     poll: async <T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>> => {
       const interval = Math.max(50, options.interval ?? 1000);
-      const timeout = Math.max(0, options.timeout ?? 30000);
+      const timeout = options.timeout !== undefined ? Math.max(0, options.timeout) : 30000;
       const backoff = Math.max(1, options.backoff ?? 1);
       const startTime = Date.now();
       let currentInterval = interval;
 
-      while (true) {
-        if (options.signal?.aborted) {
-          throw new CancelError({ cause: options.signal.reason });
-        }
+      if (options.signal?.aborted) {
+        const reason: unknown = options.signal.reason;
+        if (reason instanceof CancelError) throw reason;
+        throw new CancelError({ cause: reason });
+      }
 
-        if (timeout > 0 && Date.now() - startTime >= timeout) {
-          throw new TimeoutError(timeout, {
-            config: {
-              url,
-              method: options.method ?? 'GET',
-              headers: {},
-              timeout,
-              responseType: options.responseType ?? 'json',
-              retry: {
-                attempts: 0,
-                backoff: 'exponential',
-                delay: 0,
-                maxDelay: 0,
-                jitter: false,
-                retryOn: [],
-                safeMethods: [],
-                respectRetryAfter: false,
-              },
+      const createTimeoutError = () =>
+        new TimeoutError(timeout, {
+          config: {
+            url,
+            method: options.method ?? 'GET',
+            headers: {},
+            timeout,
+            responseType: options.responseType ?? 'json',
+            retry: {
+              attempts: 0,
+              backoff: 'exponential',
+              delay: 0,
+              maxDelay: 0,
+              jitter: false,
+              retryOn: [],
+              safeMethods: [],
+              respectRetryAfter: false,
             },
-          });
-        }
-
-        const res = await request<T>({
-          ...options,
-          url,
-          method: options.method ?? 'GET',
+          },
         });
 
-        const matched = await options.until(res);
-        if (matched) {
-          return res;
-        }
+      const overallController = new AbortController();
+      let overallTimerId: ReturnType<typeof setTimeout> | undefined;
+      let timedOut = false;
+      let callerAborted = false;
 
-        if (timeout > 0 && Date.now() - startTime + currentInterval >= timeout) {
-          const remaining = timeout - (Date.now() - startTime);
-          if (remaining > 0) {
-            await new Promise((r) => setTimeout(r, remaining));
+      if (timeout > 0) {
+        overallTimerId = setTimeout(() => {
+          timedOut = true;
+          overallController.abort(createTimeoutError());
+        }, timeout);
+      }
+
+      const onCallerAbort = () => {
+        callerAborted = true;
+        overallController.abort(options.signal?.reason);
+      };
+
+      if (options.signal) {
+        options.signal.addEventListener('abort', onCallerAbort, { once: true });
+      }
+
+      const cleanup = () => {
+        if (overallTimerId !== undefined) {
+          clearTimeout(overallTimerId);
+          overallTimerId = undefined;
+        }
+        if (options.signal && onCallerAbort) {
+          options.signal.removeEventListener('abort', onCallerAbort);
+        }
+      };
+
+      try {
+        while (true) {
+          if (callerAborted || options.signal?.aborted) {
+            const reason: unknown = options.signal?.reason;
+            if (reason instanceof CancelError) throw reason;
+            throw new CancelError({ cause: reason });
           }
-          throw new TimeoutError(timeout, {
-            config: {
+
+          if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+            throw createTimeoutError();
+          }
+
+          let res: HttpResponse<T>;
+          try {
+            res = await request<T>({
+              ...options,
               url,
               method: options.method ?? 'GET',
-              headers: {},
-              timeout,
-              responseType: options.responseType ?? 'json',
-              retry: {
-                attempts: 0,
-                backoff: 'exponential',
-                delay: 0,
-                maxDelay: 0,
-                jitter: false,
-                retryOn: [],
-                safeMethods: [],
-                respectRetryAfter: false,
-              },
-            },
-          });
-        }
+              signal: overallController.signal,
+            });
+          } catch (err: unknown) {
+            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+              throw createTimeoutError();
+            }
+            if (callerAborted || options.signal?.aborted) {
+              const reason: unknown = options.signal?.reason;
+              if (reason instanceof CancelError) throw reason;
+              throw new CancelError({ cause: reason ?? err });
+            }
+            if (err instanceof TimeoutError && timedOut) {
+              throw createTimeoutError();
+            }
+            throw err;
+          }
 
-        await new Promise((r) => setTimeout(r, currentInterval));
-        currentInterval = Math.round(currentInterval * backoff);
+          const matched = await options.until(res);
+          if (matched) {
+            return res;
+          }
+
+          const elapsed = Date.now() - startTime;
+          if (timeout > 0 && elapsed >= timeout) {
+            throw createTimeoutError();
+          }
+
+          const remaining = timeout > 0 ? timeout - elapsed : Infinity;
+          const waitMs = Math.min(currentInterval, remaining);
+          if (waitMs <= 0) {
+            throw createTimeoutError();
+          }
+
+          try {
+            await abortableSleep(waitMs, overallController.signal);
+          } catch (sleepErr: unknown) {
+            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+              throw createTimeoutError();
+            }
+            if (callerAborted || options.signal?.aborted) {
+              const reason: unknown = options.signal?.reason;
+              if (reason instanceof CancelError) throw reason;
+              throw new CancelError({ cause: reason ?? sleepErr });
+            }
+            throw sleepErr;
+          }
+
+          currentInterval = Math.round(currentInterval * backoff);
+        }
+      } catch (err: unknown) {
+        if (
+          timedOut ||
+          (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))
+        ) {
+          throw createTimeoutError();
+        }
+        if (callerAborted || options.signal?.aborted) {
+          const reason: unknown = options.signal?.reason;
+          if (reason instanceof CancelError) throw reason;
+          throw new CancelError({ cause: reason ?? err });
+        }
+        throw err;
+      } finally {
+        cleanup();
       }
     },
     paginate: null as unknown as PaginateHelper,

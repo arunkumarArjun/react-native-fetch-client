@@ -168,8 +168,6 @@ async function dispatchFetch<T>(
   };
 }
 
-const activeCancelGroups = new Map<string, AbortController>();
-
 export async function executeRequest<T = unknown>(
   config: RequestConfig,
   clientConfig: ClientConfig = {},
@@ -178,7 +176,10 @@ export async function executeRequest<T = unknown>(
   cacheManager?: CacheManager,
   circuitBreaker?: CircuitBreaker,
   concurrencyLimiter?: ConcurrencyLimiter,
+  cancelGroups?: Map<string, AbortController>,
 ): Promise<HttpResponse<T>> {
+  const activeGroups = cancelGroups ?? new Map<string, AbortController>();
+
   // 0. Auto-cancel previous in-flight request in the same cancellation group
   let groupController: AbortController | undefined;
   let groupKey: string | undefined;
@@ -189,7 +190,7 @@ export async function executeRequest<T = unknown>(
     !config._isRefreshed
   ) {
     groupKey = config.cancelPrevious;
-    const existing = activeCancelGroups.get(groupKey);
+    const existing = activeGroups.get(groupKey);
     if (existing) {
       existing.abort(
         new CancelError({
@@ -200,7 +201,7 @@ export async function executeRequest<T = unknown>(
       );
     }
     groupController = new AbortController();
-    activeCancelGroups.set(groupKey, groupController);
+    activeGroups.set(groupKey, groupController);
 
     if (config.signal) {
       if (config.signal.aborted) {
@@ -223,8 +224,8 @@ export async function executeRequest<T = unknown>(
   }
 
   const cleanupGroup = (): void => {
-    if (groupKey && groupController && activeCancelGroups.get(groupKey) === groupController) {
-      activeCancelGroups.delete(groupKey);
+    if (groupKey && groupController && activeGroups.get(groupKey) === groupController) {
+      activeGroups.delete(groupKey);
     }
   };
 
@@ -237,6 +238,7 @@ export async function executeRequest<T = unknown>(
       cacheManager,
       circuitBreaker,
       concurrencyLimiter,
+      activeGroups,
     );
   } finally {
     cleanupGroup();
@@ -251,6 +253,7 @@ async function executeRequestInternal<T = unknown>(
   cacheManager?: CacheManager,
   circuitBreaker?: CircuitBreaker,
   concurrencyLimiter?: ConcurrencyLimiter,
+  cancelGroups?: Map<string, AbortController>,
 ): Promise<HttpResponse<T>> {
   // 1. Client concurrency throttling
   if (concurrencyLimiter && !config._isFromConcurrency) {
@@ -264,6 +267,7 @@ async function executeRequestInternal<T = unknown>(
           cacheManager,
           circuitBreaker,
           concurrencyLimiter,
+          cancelGroups,
         ),
       config.signal,
     );
@@ -364,6 +368,7 @@ async function executeRequestInternal<T = unknown>(
             cacheManager,
             circuitBreaker,
             concurrencyLimiter,
+            cancelGroups,
           )
             .then((freshRes) => {
               const onRevalidated =
@@ -418,6 +423,7 @@ async function executeRequestInternal<T = unknown>(
           cacheManager,
           circuitBreaker,
           concurrencyLimiter,
+          cancelGroups,
         );
       },
       config.signal,
@@ -691,6 +697,7 @@ async function executeRequestInternal<T = unknown>(
               cacheManager,
               circuitBreaker,
               concurrencyLimiter,
+              cancelGroups,
             );
           } catch (refreshErr: unknown) {
             if (totalController.signal.aborted) {

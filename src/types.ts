@@ -245,7 +245,7 @@ export type DebugLogger = (entry: DebugLogEntry) => void;
  * Supported file input types for `api.upload()`.
  */
 export type UploadFileSource =
-  Blob | File | FormData | ArrayBuffer | Uint8Array | Record<string, unknown>;
+  Blob | File | FormData | ArrayBuffer | ArrayBufferView | Uint8Array | Record<string, unknown>;
 
 /**
  * Additional options for `api.upload()`.

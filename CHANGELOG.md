@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-10-20
+
+### Fixed & Tested
+
+- **Binary Upload Slice Offsets**: Fixed `api.upload()` to respect `byteOffset` and `byteLength` on `Uint8Array`, `DataView`, and other `ArrayBufferView` typed arrays when converting to `Blob`, preventing unneeded bytes from the backing buffer from being uploaded.
+- **Smart Polling Deadline Enforcement**: Configured `api.poll()` with an overall timeout controller so that hanging in-flight network requests are automatically aborted when the polling deadline expires.
+- **Immediate Polling Delay Cancellation**: Replaced uncancelable interval `setTimeout` with an abort-aware delay helper, ensuring caller cancellation immediately interrupts the wait and prevents subsequent requests.
+- **Client Cancellation Group Isolation**: Scoped `cancelPrevious` cancellation maps to individual `HttpClient` instances, preventing separate clients sharing group names from unintentionally cancelling each other.
+
 ## [0.1.6] - 2026-10-16
 
 ### Added

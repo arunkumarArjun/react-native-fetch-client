@@ -10,7 +10,7 @@
 [![Security Policy](https://img.shields.io/badge/Security-Policy-brightgreen.svg)](SECURITY.md)
 [![TypeScript & JavaScript](https://img.shields.io/badge/Languages-TypeScript%20%7C%20JavaScript-blue)](https://www.typescriptlang.org/)
 [![Runtime Dependencies](https://img.shields.io/badge/Dependencies-0-success.svg)](package.json)
-[![Tests: 203 passing](https://img.shields.io/badge/Tests-203%20Passing-brightgreen.svg)](test)
+[![Tests: 220 passing](https://img.shields.io/badge/Tests-220%20Passing-brightgreen.svg)](test)
 [![Expo & React Native](https://img.shields.io/badge/React%20Native-Bridgeless%20%26%20New%20Arch%20Ready-success.svg)](https://reactnative.dev)
 
 ---

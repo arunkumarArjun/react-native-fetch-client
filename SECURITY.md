@@ -34,5 +34,6 @@ This keeps the report private, encrypted, and accessible only to the project mai
 
 - **Zero Runtime Dependencies**: Completely eliminates third-party transitive supply chain vulnerabilities (`node_modules` pollution).
 - **Header Redaction**: `Authorization`, `Cookie`, and sensitive headers are automatically redacted in debug logs and error objects.
+- **Universal DevTools Stealth Mode**: Built-in `hideFromDevTools` option suppresses private routes and PII from appearing in Chrome Inspect (`chrome://inspect`) and mobile debuggers during security audits.
 - **Safe Authentication Mutex**: Prevents race conditions and duplicate refresh tokens during concurrent 401 recovery.
 - **Strict Method Checks**: Safe cache storage (RFC 7234) is strictly enforced only on safe HTTP methods (`GET`, `HEAD`).

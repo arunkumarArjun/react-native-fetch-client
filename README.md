@@ -108,6 +108,7 @@ Traditional HTTP clients like Axios were built over a decade ago around browser 
 | **Go/Rust Safe Requests (`api.safe`)** | ✅ Built-in | ❌ None | ❌ None |
 | **Standard Schema / Zod Validation** | ✅ Built-in | ❌ None | ❌ None |
 | **Offline Mutation Queue** | ✅ Built-in | ❌ None | ❌ None |
+| **Universal DevTools Stealth Mode** | ✅ Built-in (`hideFromDevTools`) | ❌ None | ❌ None |
 
 ---
 
@@ -746,6 +747,36 @@ const api = createClient({
   debug: true, // or custom logger callback: (entry) => sendToTelemetry(entry)
 });
 ```
+
+---
+
+## 🛡️ Universal DevTools Stealth Mode (`hideFromDevTools`)
+
+Keep sensitive endpoints, payment credentials, and internal APIs completely hidden from Chrome Inspect (`chrome://inspect`), Flipper, and remote debuggers without requiring any backend changes:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+
+export const api = createClient({
+  baseURL: 'https://api.yourbank.com',
+
+  // 1. Hide all requests globally:
+  // hideFromDevTools: true,
+
+  // 2. OR selectively hide sensitive endpoints by string or RegExp:
+  hideFromDevTools: ['/auth', '/payment', '/checkout', /credit-card/],
+});
+
+// Or override per-request:
+await api.post('/auth/login', credentials, {
+  hideFromDevTools: true, // 👈 Suppressed from Chrome Inspect & DevTools
+});
+```
+
+- **Zero Backend Changes**: The server receives standard HTTPS requests and returns standard JSON.
+- **Chrome Inspect**: The Network tab receives zero CDP events and stays completely blank for hidden requests.
+- **Leak Protection**: Console debuggers and internal loggers are automatically silenced for protected endpoints.
+- **Cross-Platform**: Operates natively in React Native / Expo, Web browsers, and Node.js.
 
 ---
 

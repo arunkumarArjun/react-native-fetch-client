@@ -126,6 +126,63 @@ function getReactNativeXHRInterceptor(): ReactNativeXHRInterceptor | null {
   return null;
 }
 
+let originalSendCallback: XHRSendCallback | undefined;
+let originalResponseCallback: XHRResponseCallback | undefined;
+let isGloballyHooked = false;
+
+function ensureGlobalHook(interceptor: ReactNativeXHRInterceptor): void {
+  if (isGloballyHooked) return;
+  if (
+    typeof interceptor.isInterceptorEnabled === 'function' &&
+    interceptor.isInterceptorEnabled()
+  ) {
+    originalSendCallback = interceptor._sendCallback;
+    originalResponseCallback = interceptor._responseCallback;
+
+    if (typeof interceptor.setSendCallback === 'function') {
+      interceptor.setSendCallback((data: unknown, xhr: ReactNativeXHR) => {
+        if (xhr._url && activeSuppressedUrls.has(xhr._url)) {
+          return;
+        }
+        if (typeof originalSendCallback === 'function') {
+          originalSendCallback(data, xhr);
+        }
+      });
+    }
+
+    if (typeof interceptor.setResponseCallback === 'function') {
+      interceptor.setResponseCallback(
+        (status: number, timeout: number, response: unknown, resUrl?: string) => {
+          if (resUrl && activeSuppressedUrls.has(resUrl)) {
+            return;
+          }
+          if (typeof originalResponseCallback === 'function') {
+            originalResponseCallback(status, timeout, response, resUrl);
+          }
+        },
+      );
+    }
+
+    isGloballyHooked = true;
+  }
+}
+
+function restoreGlobalHook(interceptor: ReactNativeXHRInterceptor): void {
+  if (!isGloballyHooked) return;
+  try {
+    if (typeof originalSendCallback === 'function') {
+      interceptor.setSendCallback(originalSendCallback);
+    }
+    if (typeof originalResponseCallback === 'function') {
+      interceptor.setResponseCallback(originalResponseCallback);
+    }
+  } finally {
+    originalSendCallback = undefined;
+    originalResponseCallback = undefined;
+    isGloballyHooked = false;
+  }
+}
+
 /**
  * Temporarily wraps an execution block while suppressing React Native's
  * DevTools / Chrome Inspect network reporter for the matching request.
@@ -147,42 +204,9 @@ export async function withDevToolsSuppression<T>(
   trackSuppressedUrl(url);
   const interceptor = getReactNativeXHRInterceptor();
 
-  let originalSendCallback: XHRSendCallback | undefined;
-  let originalResponseCallback: XHRResponseCallback | undefined;
-  let isHooked = false;
-
-  if (interceptor && typeof interceptor.isInterceptorEnabled === 'function') {
+  if (interceptor) {
     try {
-      if (interceptor.isInterceptorEnabled()) {
-        originalSendCallback = interceptor._sendCallback;
-        originalResponseCallback = interceptor._responseCallback;
-
-        if (typeof interceptor.setSendCallback === 'function') {
-          interceptor.setSendCallback((data: unknown, xhr: ReactNativeXHR) => {
-            if (xhr._url && activeSuppressedUrls.has(xhr._url)) {
-              return;
-            }
-            if (typeof originalSendCallback === 'function') {
-              originalSendCallback(data, xhr);
-            }
-          });
-        }
-
-        if (typeof interceptor.setResponseCallback === 'function') {
-          interceptor.setResponseCallback(
-            (status: number, timeout: number, response: unknown, resUrl?: string) => {
-              if (resUrl && activeSuppressedUrls.has(resUrl)) {
-                return;
-              }
-              if (typeof originalResponseCallback === 'function') {
-                originalResponseCallback(status, timeout, response, resUrl);
-              }
-            },
-          );
-        }
-
-        isHooked = true;
-      }
+      ensureGlobalHook(interceptor);
     } catch {
       // Safe fallback if interceptor internals differ
     }
@@ -194,14 +218,9 @@ export async function withDevToolsSuppression<T>(
     untrackSuppressedUrl(url);
 
     // Only restore global interceptor callbacks when all suppressed requests across all clients have finished
-    if (activeSuppressedUrls.size === 0 && isHooked && interceptor) {
+    if (activeSuppressedUrls.size === 0 && interceptor) {
       try {
-        if (typeof originalSendCallback === 'function') {
-          interceptor.setSendCallback(originalSendCallback);
-        }
-        if (typeof originalResponseCallback === 'function') {
-          interceptor.setResponseCallback(originalResponseCallback);
-        }
+        restoreGlobalHook(interceptor);
       } catch {
         // Safe cleanup
       }

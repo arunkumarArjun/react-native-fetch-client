@@ -1,4 +1,4 @@
-import { HttpError } from './errors.js';
+import { HttpError, createAbortError } from './errors.js';
 import type { AuthConfig } from './types.js';
 
 /**
@@ -134,7 +134,7 @@ export class AuthManager {
       if (reason instanceof Error) {
         return Promise.reject(reason);
       }
-      return Promise.reject(new DOMException('Aborted', 'AbortError'));
+      return Promise.reject(createAbortError());
     }
 
     const refreshPromise = this.refresh();
@@ -150,7 +150,7 @@ export class AuthManager {
         if (reason instanceof Error) {
           reject(reason);
         } else {
-          reject(new DOMException('Aborted', 'AbortError'));
+          reject(createAbortError());
         }
       };
       signal.addEventListener('abort', abortHandler, { once: true });

@@ -86,6 +86,7 @@ export {
   isCircuitBreakerError,
   isWaitForAbortedError,
   isAuthRefreshError,
+  createAbortError,
 } from './errors.js';
 
 import { createClient } from './client.js';

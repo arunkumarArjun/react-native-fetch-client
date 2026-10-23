@@ -170,17 +170,23 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       );
     } catch (err: unknown) {
       let currentError: unknown = err;
+      let recoveredResponse: HttpResponse<unknown> | undefined;
       for (const interceptor of responseInterceptors.getInterceptors()) {
         if (interceptor.rejected) {
           try {
             const recovered = await interceptor.rejected(currentError);
-            return recovered as HttpResponse<T>;
+            recoveredResponse = recovered as HttpResponse<unknown>;
+            break;
           } catch (rejectedErr: unknown) {
             currentError = rejectedErr;
           }
         }
       }
-      throw currentError;
+      if (recoveredResponse) {
+        response = recoveredResponse as HttpResponse<T>;
+      } else {
+        throw currentError;
+      }
     }
 
     let currentResponse: HttpResponse<unknown> = response;

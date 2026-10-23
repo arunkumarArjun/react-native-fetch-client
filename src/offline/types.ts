@@ -1,4 +1,4 @@
-import type { HttpMethod, HttpResponse, QueryParams, RequestConfig } from '../types.js';
+import type { HttpMethod, HttpResponse, PathParams, QueryParams, RequestConfig } from '../types.js';
 
 /**
  * Storage adapter interface for persistent offline queue.
@@ -19,6 +19,7 @@ export interface QueuedRequest {
   method: HttpMethod;
   headers?: Record<string, string>;
   params?: QueryParams;
+  pathParams?: PathParams;
   body?: string;
   enqueuedAt: number;
   attemptCount: number;

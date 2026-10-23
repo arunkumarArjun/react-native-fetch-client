@@ -65,7 +65,10 @@ export type PathParams = Record<string, string | number | boolean>;
  * Query parameters accepted on a request.
  * Values of `null` or `undefined` are omitted from the serialized query string.
  */
-export type QueryParams = Record<string, string | number | boolean | null | undefined>;
+export type QueryParams = Record<
+  string,
+  string | number | boolean | (string | number | boolean)[] | null | undefined
+>;
 
 // ---------------------------------------------------------------------------
 // Schema Validation (Duck-Typing & Standard Schema)
@@ -106,9 +109,15 @@ export interface StandardSchemaV1<T = unknown> {
  */
 export interface ZodLikeSchema<T = unknown> {
   parse?(data: unknown): T;
+  parseAsync?(data: unknown): Promise<T>;
   safeParse?(
     data: unknown,
   ): { success: true; data: T } | { success: false; error: { message: string; issues?: unknown } };
+  safeParseAsync?(
+    data: unknown,
+  ): Promise<
+    { success: true; data: T } | { success: false; error: { message: string; issues?: unknown } }
+  >;
 }
 
 /**
@@ -1112,6 +1121,8 @@ export interface MockAdapter {
   onPut(url?: string | RegExp): MockHandler;
   onPatch(url?: string | RegExp): MockHandler;
   onDelete(url?: string | RegExp): MockHandler;
+  onHead(url?: string | RegExp): MockHandler;
+  onOptions(url?: string | RegExp): MockHandler;
   onAny(url?: string | RegExp): MockHandler;
   /** Clear all mock route handlers and captured history. */
   reset(): void;

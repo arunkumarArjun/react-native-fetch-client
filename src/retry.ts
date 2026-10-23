@@ -5,6 +5,7 @@ import {
   CancelError,
   ConfigError,
   ParseError,
+  createAbortError,
 } from './errors.js';
 import type { ResolvedRequestConfig, ResolvedRetryPolicy, RetryPolicy } from './types.js';
 
@@ -187,7 +188,7 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     if (reason instanceof Error) {
       return Promise.reject(reason);
     }
-    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+    return Promise.reject(createAbortError());
   }
 
   if (ms <= 0) {
@@ -204,7 +205,7 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       if (reason instanceof Error) {
         reject(reason);
       } else {
-        reject(new DOMException('Aborted', 'AbortError'));
+        reject(createAbortError());
       }
     }
 

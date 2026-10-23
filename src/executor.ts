@@ -9,6 +9,7 @@ import {
   ValidationError,
   CircuitBreakerError,
   AuthRefreshError,
+  createAbortError,
 } from './errors.js';
 import { buildUrl } from './url.js';
 import { mergeHeaders } from './headers.js';
@@ -77,7 +78,7 @@ async function dispatchFetch<T>(
   const getAbortError = (): Error => {
     const reason: unknown = signal.reason;
     if (reason instanceof Error) return reason;
-    return new DOMException('Aborted', 'AbortError');
+    return createAbortError();
   };
 
   let abortListener: (() => void) | undefined;
@@ -132,14 +133,19 @@ async function dispatchFetch<T>(
   }
 
   if (!response.ok) {
-    const clonedResponse = response.clone();
+    let clonedResponse: Response | undefined;
+    try {
+      clonedResponse = response.clone();
+    } catch {
+      // Safe fallback for environments/streams where clone() is unsupported
+    }
     const errorData = await parseResponse(response, responseType, resolvedConfig).catch(() => null);
     throw new HttpError(`HTTP Error ${response.status} ${response.statusText}`, {
       status: response.status,
       statusText: response.statusText,
       data: errorData,
       headers: resHeaders,
-      response: clonedResponse,
+      response: clonedResponse ?? response,
       config: resolvedConfig,
     });
   }

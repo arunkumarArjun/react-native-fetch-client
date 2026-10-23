@@ -16,6 +16,7 @@ import type {
   PaginateHelper,
   PaginateOptions,
   PaginationConfig,
+  QueryParams,
 } from './types.js';
 
 /**
@@ -95,7 +96,7 @@ export function createPaginateHelper(
       pageCount++;
 
       // Build merged query parameters for this page
-      const pageParams: Record<string, string | number | boolean | null | undefined> = {
+      const pageParams: QueryParams = {
         ...(options?.params ?? {}),
       };
 
@@ -113,8 +114,8 @@ export function createPaginateHelper(
         if (currentCursor !== undefined && currentCursor !== null) {
           pageParams[cursorParam] = currentCursor;
         }
-        if (cfg.pageSize !== undefined) {
-          pageParams[pageSizeParam] = cfg.pageSize;
+        if (pageSize !== undefined) {
+          pageParams[pageSizeParam] = pageSize;
         }
       }
 
@@ -128,7 +129,7 @@ export function createPaginateHelper(
       // Determine next URL or query parameters
       if (cfg.getNextUrl) {
         currentUrl = cfg.getNextUrl(res) ?? null;
-      } else if (strategy === 'linkHeader' || res.headers['link']) {
+      } else if (strategy === 'linkHeader' || (!cfg.type && res.headers['link'])) {
         currentUrl = parseNextLinkHeader(res.headers['link']);
       } else if (strategy === 'cursor') {
         if (cfg.getNextCursor) {

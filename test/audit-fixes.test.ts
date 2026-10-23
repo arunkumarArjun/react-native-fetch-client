@@ -169,7 +169,7 @@ describe('Audit Fixes & Correctness Regressions (15 issues verification)', () =>
 
       expect(key).not.toContain(secretToken);
       expect(key).not.toContain('my-super-secret-jwt-token');
-      expect(key).toMatch(/^GET:\/me\|auth:[0-9a-f]+$/);
+      expect(key).toMatch(/^GET:https:\/\/api\.example\.com\/me\|auth:[0-9a-f]+$/);
     });
   });
 

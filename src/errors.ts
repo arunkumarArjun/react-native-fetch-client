@@ -26,6 +26,19 @@ function buildOptions(partial: {
   return opts;
 }
 
+/**
+ * Safely creates an AbortError with cross-platform fallback.
+ * Prevents ReferenceError in React Native Hermes and non-DOM engines where DOMException is undefined.
+ */
+export function createAbortError(message = 'Aborted'): Error {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException(message, 'AbortError');
+  }
+  const err = new Error(message);
+  err.name = 'AbortError';
+  return err;
+}
+
 // ---------------------------------------------------------------------------
 // Base error
 // ---------------------------------------------------------------------------

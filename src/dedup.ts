@@ -1,4 +1,5 @@
-import { CancelError } from './errors.js';
+import { CancelError, createAbortError } from './errors.js';
+import { isAbsoluteUrl } from './url.js';
 import type { DedupConfig, HttpMethod, HttpResponse } from './types.js';
 
 interface Subscriber<T> {
@@ -29,9 +30,11 @@ export function generateDedupKey(
 
   let normalizedUrl = url;
   try {
+    const isRelative = !isAbsoluteUrl(url);
     const parsed = new URL(url, 'http://localhost');
     parsed.searchParams.sort();
-    normalizedUrl = parsed.pathname + parsed.search;
+    const pathWithSearch = parsed.pathname + parsed.search;
+    normalizedUrl = isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
   } catch {
     // Keep original url
   }
@@ -120,9 +123,7 @@ export class DedupManager {
       if (reason instanceof CancelError) {
         return Promise.reject(reason);
       }
-      return Promise.reject(
-        new CancelError({ cause: reason ?? new DOMException('Aborted', 'AbortError') }),
-      );
+      return Promise.reject(new CancelError({ cause: reason ?? createAbortError() }));
     }
 
     let entry = this.inFlight.get(key) as InFlightEntry<T> | undefined;
@@ -169,15 +170,13 @@ export class DedupManager {
         const cancelErr =
           reason instanceof CancelError
             ? reason
-            : new CancelError({ cause: reason ?? new DOMException('Aborted', 'AbortError') });
+            : new CancelError({ cause: reason ?? createAbortError() });
         reject(cancelErr);
 
         // If all subscribers have cancelled, abort the underlying network call
         if (currentEntry.subscribers.size === 0) {
           this.inFlight.delete(key);
-          currentEntry.underlyingAbortController.abort(
-            new DOMException('All subscribers aborted', 'AbortError'),
-          );
+          currentEntry.underlyingAbortController.abort(createAbortError('All subscribers aborted'));
         }
       };
 

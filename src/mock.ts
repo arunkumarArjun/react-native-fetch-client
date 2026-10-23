@@ -240,7 +240,9 @@ export function createMockAdapter(
       ...headers,
     };
 
-    return new Response(bodyText, {
+    const isNullBodyStatus = status === 204 || status === 205 || status === 304;
+
+    return new Response(isNullBodyStatus ? null : bodyText, {
       status,
       statusText: status === 200 ? 'OK' : 'Mock Response',
       headers: resHeaders,
@@ -259,6 +261,8 @@ export function createMockAdapter(
     onPut: (url = '') => registerHandler('PUT', url),
     onPatch: (url = '') => registerHandler('PATCH', url),
     onDelete: (url = '') => registerHandler('DELETE', url),
+    onHead: (url = '') => registerHandler('HEAD', url),
+    onOptions: (url = '') => registerHandler('OPTIONS', url),
     onAny: (url = '') => registerHandler('ANY', url),
     reset() {
       handlers.length = 0;

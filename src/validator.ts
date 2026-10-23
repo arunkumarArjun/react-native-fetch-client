@@ -90,15 +90,20 @@ export async function validateData<T>(
     }
   }
 
-  // 2. Zod-like schema with .safeParse()
+  // 2. Zod-like schema with .safeParse() or .safeParseAsync()
   if (
     typeof schema === 'object' &&
     schema !== null &&
-    'safeParse' in schema &&
-    typeof schema.safeParse === 'function'
+    (('safeParseAsync' in schema && typeof schema.safeParseAsync === 'function') ||
+      ('safeParse' in schema && typeof schema.safeParse === 'function'))
   ) {
     try {
-      const res = schema.safeParse(data);
+      const res =
+        typeof schema.safeParseAsync === 'function'
+          ? await schema.safeParseAsync(data)
+          : typeof schema.safeParse === 'function'
+            ? schema.safeParse(data)
+            : { success: true as const, data: data as T };
       if (!res.success) {
         const issues = res.error && 'issues' in res.error ? res.error.issues : undefined;
         throw new ValidationError(
@@ -114,15 +119,21 @@ export async function validateData<T>(
     }
   }
 
-  // 3. Zod-like schema with .parse()
+  // 3. Zod-like schema with .parse() or .parseAsync()
   if (
     typeof schema === 'object' &&
     schema !== null &&
-    'parse' in schema &&
-    typeof schema.parse === 'function'
+    (('parseAsync' in schema && typeof schema.parseAsync === 'function') ||
+      ('parse' in schema && typeof schema.parse === 'function'))
   ) {
     try {
-      return schema.parse(data);
+      if (typeof schema.parseAsync === 'function') {
+        return await schema.parseAsync(data);
+      }
+      if (typeof schema.parse === 'function') {
+        return schema.parse(data);
+      }
+      return data as T;
     } catch (err: unknown) {
       const issues =
         err !== null && typeof err === 'object' && 'issues' in err ? err.issues : undefined;

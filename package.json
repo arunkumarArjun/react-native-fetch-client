@@ -49,6 +49,7 @@
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
+  "react-native": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",

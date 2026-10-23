@@ -6,6 +6,7 @@ import type {
   RequestCacheConfig,
   ResponseCache,
 } from './types.js';
+import { isAbsoluteUrl } from './url.js';
 
 /** Internal cache entry storing the cloned response and expiration timestamp. */
 export interface CacheEntry<T = unknown> {
@@ -76,9 +77,11 @@ export function generateCacheKey(
   allowAuthenticated = false,
 ): string {
   const normMethod = method.toUpperCase();
+  const isRelative = !isAbsoluteUrl(url);
   const urlObj = new URL(url, 'http://localhost');
   urlObj.searchParams.sort();
-  const sortedUrl = urlObj.pathname + (urlObj.search ? urlObj.search : '');
+  const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
+  const sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
 
   let authPart = '';
   if (allowAuthenticated && headers) {
@@ -446,19 +449,25 @@ export class CacheManager implements ResponseCache {
     let deletedCount = 0;
     const keysToDelete: string[] = [];
 
+    const targetPath =
+      pathname.startsWith('http://') || pathname.startsWith('https://')
+        ? new URL(pathname).pathname
+        : pathname;
+
     for (const key of this.store.keys()) {
-      // Key format: `${METHOD}:${pathname}${search}${authPart}`
+      // Key format: `${METHOD}:${pathnameOrFullUrl}${search}${authPart}`
       const colonIdx = key.indexOf(':');
       if (colonIdx === -1) continue;
       const keyUrlPart = key.slice(colonIdx + 1);
-      const questionIdx = keyUrlPart.indexOf('?');
-      const pipeIdx = keyUrlPart.indexOf('|');
-      let endIdx = keyUrlPart.length;
-      if (questionIdx !== -1) endIdx = Math.min(endIdx, questionIdx);
-      if (pipeIdx !== -1) endIdx = Math.min(endIdx, pipeIdx);
-      const keyPath = keyUrlPart.slice(0, endIdx);
+      const cleanUrlPart = keyUrlPart.split('|')[0] ?? '';
+      let keyPath: string;
+      try {
+        keyPath = new URL(cleanUrlPart, 'http://localhost').pathname;
+      } catch {
+        keyPath = cleanUrlPart.split('?')[0] ?? '';
+      }
 
-      if (keyPath === pathname) {
+      if (keyPath === targetPath) {
         keysToDelete.push(key);
       }
     }

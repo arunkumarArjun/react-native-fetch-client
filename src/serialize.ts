@@ -18,7 +18,8 @@ export function serializeBody(
   if (
     (typeof FormData !== 'undefined' && body instanceof FormData) ||
     (typeof Blob !== 'undefined' && body instanceof Blob) ||
-    (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer) ||
+    (typeof ArrayBuffer !== 'undefined' &&
+      (body instanceof ArrayBuffer || ArrayBuffer.isView(body))) ||
     (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams)
   ) {
     return { body: body as BodyInit }; // contentType left undefined to let fetch handle it

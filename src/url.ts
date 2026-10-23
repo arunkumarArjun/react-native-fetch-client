@@ -117,8 +117,16 @@ export function buildUrl(
 
   // Step 3: Append query params
   if (params) {
+    const hashIndex = resolvedUrl.indexOf('#');
+    let urlWithoutHash = resolvedUrl;
+    let hash = '';
+    if (hashIndex !== -1) {
+      urlWithoutHash = resolvedUrl.slice(0, hashIndex);
+      hash = resolvedUrl.slice(hashIndex);
+    }
+
     const searchParams = new URLSearchParams();
-    const [base, search] = resolvedUrl.split('?');
+    const [base, search] = urlWithoutHash.split('?');
 
     // Preserve existing query params
     if (search) {
@@ -129,12 +137,21 @@ export function buildUrl(
     // Add new query params
     for (const [key, value] of Object.entries(params)) {
       if (value !== null && value !== undefined) {
-        searchParams.append(key, String(value));
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (item !== null && item !== undefined) {
+              searchParams.append(key, String(item));
+            }
+          }
+        } else {
+          searchParams.append(key, String(value));
+        }
       }
     }
 
     const qs = searchParams.toString();
-    return qs ? `${base}?${qs}` : base || '';
+    const withQuery = qs ? `${base}?${qs}` : base || '';
+    return hash ? `${withQuery}${hash}` : withQuery;
   }
 
   return resolvedUrl;

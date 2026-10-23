@@ -181,6 +181,9 @@ export function createOfflineQueue(config: OfflineQueueConfig): OfflineQueue {
     if (reqConfig.params) {
       queuedItem.params = { ...reqConfig.params };
     }
+    if (reqConfig.pathParams) {
+      queuedItem.pathParams = { ...reqConfig.pathParams };
+    }
     if (serializedBody !== undefined) {
       queuedItem.body = serializedBody;
     }
@@ -250,6 +253,9 @@ export function createOfflineQueue(config: OfflineQueueConfig): OfflineQueue {
         }
         if (current.params) {
           requestConfig.params = current.params;
+        }
+        if (current.pathParams) {
+          requestConfig.pathParams = current.pathParams;
         }
         if (parsedBody !== undefined && parsedBody !== null) {
           requestConfig.body = parsedBody as NonNullable<RequestConfig['body']>;

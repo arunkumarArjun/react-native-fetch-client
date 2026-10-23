@@ -108,6 +108,7 @@ Traditional HTTP clients like Axios were built over a decade ago around browser 
 | **Go/Rust Safe Requests (`api.safe`)** | ✅ Built-in | ❌ None | ❌ None |
 | **Standard Schema / Zod Validation** | ✅ Built-in | ❌ None | ❌ None |
 | **Offline Mutation Queue** | ✅ Built-in | ❌ None | ❌ None |
+| **Universal DevTools Stealth Mode** | ✅ Built-in (`hideFromDevTools`) | ❌ None | ❌ None |
 
 ---
 
@@ -746,6 +747,69 @@ const api = createClient({
   debug: true, // or custom logger callback: (entry) => sendToTelemetry(entry)
 });
 ```
+
+---
+
+## 🛡️ Universal DevTools Stealth Mode (`hideFromDevTools`)
+
+Keep sensitive endpoints, payment credentials, biometric handshakes, and internal APIs hidden from developer debugging tools without requiring any backend changes:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+
+export const api = createClient({
+  baseURL: 'https://api.yourbank.com',
+
+  // 1. Hide all requests globally:
+  // hideFromDevTools: true,
+
+  // 2. OR selectively hide sensitive endpoints by string or RegExp:
+  hideFromDevTools: ['/auth', '/payment', '/checkout', /credit-card/],
+});
+
+// Or override per-request:
+await api.post('/auth/login', credentials, {
+  hideFromDevTools: true, // 👈 Suppressed from inspection tools
+});
+```
+
+### 📱 Platform Capabilities Matrix
+
+| Platform | Code Execution & Safety | Hides from Network Inspector? | Suppresses Console / Debug Logs? |
+| :--- | :---: | :---: | :---: |
+| **React Native (iOS & Android)** | ✅ **100% Safe** | ✅ **YES (Full Stealth)**<br>Hides from `chrome://inspect`, Hermes Inspector, Flipper Network plugin, and Metro inspector | ✅ **YES**<br>No URL, query, or payload leaks in Metro/console |
+| **Web Browsers (Chrome, Edge, Safari, Firefox)** | ✅ **100% Safe** | ⚠️ **PARTIAL (Browser Sandbox Limitation)**<br>Request and response **WILL appear** in Chrome's native C++ Network tab | ✅ **YES**<br>Mutes `console.log`, debug output, error dumps, and frontend telemetry (Sentry/Datadog) |
+| **Node.js / SSR / Next.js** | ✅ **100% Safe** | ✅ **YES**<br>Suppresses inspector event emissions & CDP hooks | ✅ **YES**<br>Zero stdout / stderr token dumping |
+
+---
+
+### 🌐 Mobile vs. Web: What Works and What Does Not
+
+#### **Mobile (React Native iOS & Android) — Full Stealth**
+- **What Works:** React Native network traffic is piped through a JavaScript layer (`react-native/Libraries/Network/XHRInterceptor`) that emits telemetry to Metro, Chrome Inspect (`chrome://inspect`), and Flipper. When `hideFromDevTools` matches an endpoint, `react-native-fetch-client` intercepts the telemetry dispatch and drops the event for that request.
+- **Result:** Anyone inspecting the running app via Chrome Inspect, Hermes Inspector, or Flipper **will not see the network request at all**.
+- **Log Protection:** Metro bundler logs, `console.debug`, and client loggers are silenced for matched endpoints.
+
+#### **Web Browsers (Chrome, Firefox, Safari, Edge) — Console Stealth Only**
+- **What Works:** Silences internal debuggers, console logs, and prevents sensitive URLs or responses from appearing in the Console tab or third-party error trackers (Sentry, LogRocket, Datadog).
+- **What Does NOT Work:** The browser's native **DevTools Network tab** is implemented in the browser's C++ core engine (Chromium / WebKit) below the JavaScript runtime sandbox. Under the W3C security standard, **no JavaScript library can hide or suppress HTTP requests from Chrome's native Network tab**.
+- **Recommended Web Solution:** If your web application requires hiding sensitive payload contents from the browser Network tab, use **End-to-End Payload Encryption (JWE / AES-GCM)**. The request will still appear in the Network tab, but the headers and body will display as unreadable ciphertext.
+
+---
+
+### 🔒 VAPT & Security Audit Checklist (OWASP Mobile Top 10)
+
+This feature directly helps teams pass mobile penetration testing and compliance audits:
+
+1. **OWASP Mobile M1: Improper Credential Usage / Sensitive Data Exposure in Logs**
+   - **Audit Check:** Auditors inspect device logs (`adb logcat`, iOS Console, Metro logs) for leaked Bearer tokens, passwords, or PII.
+   - **Mitigation:** `hideFromDevTools` mutes all internal logging, URL serialization, and debug output for protected endpoints.
+2. **OWASP Mobile M9: Reverse Engineering & Runtime API Reconnaissance**
+   - **Audit Check:** Auditors attach debugger tools (`chrome://inspect`, Hermes Debugger, Flipper) to discover undocumented backend APIs, endpoint structures, and parameters.
+   - **Mitigation:** Matching requests do not emit CDP network events, preventing auditors from mapping sensitive endpoints via in-app debugging.
+3. **External Proxies (Charles / Burp Suite / Proxyman):**
+   - DevTools stealth operates at the **JavaScript / runtime debugger level**.
+   - If an auditor installs a custom root CA certificate on the physical device to perform a Man-in-the-Middle (MitM) proxy capture, pair `hideFromDevTools` with **SSL Pinning** (e.g., `react-native-ssl-pinning` or native certificate pinning) to block proxy tools as well.
 
 ---
 

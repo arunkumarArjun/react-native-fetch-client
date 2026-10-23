@@ -57,6 +57,7 @@ export type {
   MockReplyCallback,
   MockHistoryItem,
   PollOptions,
+  DevToolsPrivacyFilter,
 } from './types.js';
 
 // Error classes and type guards — stable API surface
@@ -117,6 +118,7 @@ export { parseSseStream } from './stream.js';
 export { buildUrl, interpolatePath, isAbsoluteUrl } from './url.js';
 export { createPaginateHelper, parseNextLinkHeader } from './paginate.js';
 export { createMockAdapter } from './mock.js';
+export { isDevToolsHidden, withDevToolsSuppression } from './devtools.js';
 
 // Offline Request Queue
 export { createOfflineQueue, MemoryStorageAdapter } from './offline/index.js';

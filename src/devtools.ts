@@ -9,6 +9,27 @@
 
 import type { DevToolsPrivacyFilter } from './types.js';
 
+interface ReactNativeXHR {
+  _url?: string;
+}
+
+type XHRSendCallback = (data: unknown, xhr: ReactNativeXHR) => void;
+type XHRResponseCallback = (status: number, timeout: number, response: unknown, url?: string) => void;
+
+interface ReactNativeXHRInterceptor {
+  isInterceptorEnabled?: () => boolean;
+  _sendCallback?: XHRSendCallback;
+  _responseCallback?: XHRResponseCallback;
+  setSendCallback: (callback: XHRSendCallback) => void;
+  setResponseCallback: (callback: XHRResponseCallback) => void;
+}
+
+interface ReactNativeGlobalScope {
+  __REACT_NATIVE_XHR_INTERCEPTOR__?: ReactNativeXHRInterceptor;
+  nativeCallSyncHook?: unknown;
+  require?: (moduleName: string) => unknown;
+}
+
 /**
  * Checks whether a given URL is configured to be hidden from developer tools
  * based on the provided `DevToolsPrivacyFilter`.
@@ -50,32 +71,28 @@ const activeSuppressedUrls = new Set<string>();
  * Safely accesses React Native's internal XHRInterceptor if running in React Native.
  * Uses lazy dynamic resolution to ensure zero bundler warnings in Web/Node.js environments.
  */
-function getReactNativeXHRInterceptor(): any {
+function getReactNativeXHRInterceptor(): ReactNativeXHRInterceptor | null {
   if (typeof globalThis === 'undefined') {
     return null;
   }
 
-  // Check if already exposed on global or module scope
-  const g = globalThis as any;
+  const g = globalThis as unknown as ReactNativeGlobalScope;
   if (g.__REACT_NATIVE_XHR_INTERCEPTOR__) {
     return g.__REACT_NATIVE_XHR_INTERCEPTOR__;
   }
 
-  // Check if running in React Native environment
-  const isRN =
-    typeof navigator !== 'undefined' &&
-    (navigator.product === 'ReactNative' || Boolean(g.nativeCallSyncHook));
+  const nav = typeof navigator !== 'undefined' ? (navigator as unknown as { product?: string }) : undefined;
+  const isRN = Boolean(nav?.product === 'ReactNative' || g.nativeCallSyncHook);
 
   if (!isRN) {
     return null;
   }
 
   try {
-    // Dynamic require inside try/catch for React Native bundler compatibility
     const req = typeof g.require === 'function' ? g.require : null;
     if (req) {
-      const interceptor = req('react-native/Libraries/Network/XHRInterceptor');
-      if (interceptor) {
+      const interceptor = req('react-native/Libraries/Network/XHRInterceptor') as ReactNativeXHRInterceptor | undefined;
+      if (interceptor && typeof interceptor.setSendCallback === 'function') {
         g.__REACT_NATIVE_XHR_INTERCEPTOR__ = interceptor;
         return interceptor;
       }
@@ -108,21 +125,18 @@ export async function withDevToolsSuppression<T>(
   activeSuppressedUrls.add(url);
   const interceptor = getReactNativeXHRInterceptor();
 
-  let originalSendCallback: any;
-  let originalResponseCallback: any;
+  let originalSendCallback: XHRSendCallback | undefined;
+  let originalResponseCallback: XHRResponseCallback | undefined;
   let isHooked = false;
 
   if (interceptor && typeof interceptor.isInterceptorEnabled === 'function') {
     try {
       if (interceptor.isInterceptorEnabled()) {
-        // Save current callbacks if present
         originalSendCallback = interceptor._sendCallback;
         originalResponseCallback = interceptor._responseCallback;
 
-        // Wrap send callback to filter suppressed URLs from reaching DevTools
-        interceptor.setSendCallback((data: any, xhr: any) => {
-          if (xhr && xhr._url && activeSuppressedUrls.has(xhr._url)) {
-            // Mute event from Chrome Inspect
+        interceptor.setSendCallback((data: unknown, xhr: ReactNativeXHR) => {
+          if (xhr._url && activeSuppressedUrls.has(xhr._url)) {
             return;
           }
           if (typeof originalSendCallback === 'function') {

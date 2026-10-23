@@ -141,16 +141,17 @@ describe('Phase 7: In-Memory Response Caching', () => {
       const k1 = generateCacheKey('GET', 'http://api.com/items?b=2&a=1');
       const k2 = generateCacheKey('GET', 'http://api.com/items?a=1&b=2');
       expect(k1).toBe(k2);
-      expect(k1).toBe('GET:/items?a=1&b=2');
+      expect(k1).toBe('GET:http://api.com/items?a=1&b=2');
     });
 
-    it('includes auth token in cache key only when allowAuthenticated is true', () => {
+    it('includes auth token hash in cache key only when allowAuthenticated is true without leaking secrets', () => {
       const headers = { authorization: 'Bearer user123' };
       const unauthKey = generateCacheKey('GET', '/items', headers, false);
       expect(unauthKey).toBe('GET:/items');
 
       const authKey = generateCacheKey('GET', '/items', headers, true);
-      expect(authKey).toBe('GET:/items|auth:Bearer user123');
+      expect(authKey).toMatch(/^GET:\/items\|auth:[0-9a-f]+$/);
+      expect(authKey).not.toContain('Bearer user123'); // Never leak raw credentials in cache keys
     });
 
     it('denies cache eligibility for unsafe methods', () => {

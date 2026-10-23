@@ -16,6 +16,7 @@ import type {
   PaginateHelper,
   PaginateOptions,
   PaginationConfig,
+  QueryParams,
 } from './types.js';
 
 /**
@@ -66,7 +67,9 @@ function defaultExtractItems<T>(data: T): unknown[] {
 /**
  * Creates the PaginateHelper bound to an HttpClient instance.
  */
-export function createPaginateHelper(client: HttpClient): PaginateHelper {
+export function createPaginateHelper(
+  client: { get: HttpClient['get'] } | HttpClient,
+): PaginateHelper {
   /**
    * Async generator yielding pages of HttpResponse<TResponse>.
    */
@@ -93,7 +96,7 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
       pageCount++;
 
       // Build merged query parameters for this page
-      const pageParams: Record<string, string | number | boolean | null | undefined> = {
+      const pageParams: QueryParams = {
         ...(options?.params ?? {}),
       };
 
@@ -111,8 +114,8 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
         if (currentCursor !== undefined && currentCursor !== null) {
           pageParams[cursorParam] = currentCursor;
         }
-        if (cfg.pageSize !== undefined) {
-          pageParams[pageSizeParam] = cfg.pageSize;
+        if (pageSize !== undefined) {
+          pageParams[pageSizeParam] = pageSize;
         }
       }
 
@@ -126,7 +129,7 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
       // Determine next URL or query parameters
       if (cfg.getNextUrl) {
         currentUrl = cfg.getNextUrl(res) ?? null;
-      } else if (strategy === 'linkHeader' || res.headers['link']) {
+      } else if (strategy === 'linkHeader' || (!cfg.type && res.headers['link'])) {
         currentUrl = parseNextLinkHeader(res.headers['link']);
       } else if (strategy === 'cursor') {
         if (cfg.getNextCursor) {
@@ -143,17 +146,17 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
           currentUrl = null;
         }
       } else if (strategy === 'offset') {
-        const pageSize = cfg.pageSize ?? 10;
-        currentOffset += pageSize;
+        const step = pageSize ?? 10;
+        currentOffset += step;
         const items = cfg.getItems ? cfg.getItems(res.data) : defaultExtractItems(res.data);
-        if (items.length === 0 || (cfg.pageSize !== undefined && items.length < cfg.pageSize)) {
+        if (items.length === 0 || (pageSize !== undefined && items.length < pageSize)) {
           currentUrl = null;
         }
       } else {
         // Strategy === 'page'
         currentPage++;
         const items = cfg.getItems ? cfg.getItems(res.data) : defaultExtractItems(res.data);
-        if (items.length === 0 || (cfg.pageSize !== undefined && items.length < cfg.pageSize)) {
+        if (items.length === 0 || (pageSize !== undefined && items.length < pageSize)) {
           currentUrl = null;
         }
       }

@@ -49,9 +49,22 @@ export async function* parseSseStream(
   let currentRetry: number | undefined;
 
   const rawLines = options?.rawLines ?? false;
+  const signal = options?.signal;
+  let onAbort: (() => void) | undefined;
+  if (signal) {
+    if (signal.aborted) {
+      void reader.cancel(signal.reason);
+      return;
+    }
+    onAbort = () => {
+      void reader.cancel(signal.reason);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
 
   try {
     while (true) {
+      if (signal?.aborted) break;
       const { done, value } = await reader.read();
       if (done) {
         break;
@@ -182,6 +195,13 @@ export async function* parseSseStream(
       yield finalPayload;
     }
   } finally {
-    reader.releaseLock();
+    if (signal && onAbort) {
+      signal.removeEventListener('abort', onAbort);
+    }
+    try {
+      reader.releaseLock();
+    } catch {
+      // Safe no-op
+    }
   }
 }

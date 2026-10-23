@@ -1,4 +1,4 @@
-import { HttpError } from './errors.js';
+import { HttpError, createAbortError } from './errors.js';
 import type { AuthConfig } from './types.js';
 
 /**
@@ -38,8 +38,14 @@ export class AuthManager {
         if (expired) {
           await this.refresh();
         }
-      } catch {
-        // Fall back to attempting request with existing token
+      } catch (err: unknown) {
+        // Fall back to attempting request with existing token, but log in debug/console
+        if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+          console.warn(
+            '[rnfc:auth] Pre-flight token expiration check or refresh failed; falling back to current token:',
+            err,
+          );
+        }
       }
     }
 
@@ -128,7 +134,7 @@ export class AuthManager {
       if (reason instanceof Error) {
         return Promise.reject(reason);
       }
-      return Promise.reject(new DOMException('Aborted', 'AbortError'));
+      return Promise.reject(createAbortError());
     }
 
     const refreshPromise = this.refresh();
@@ -144,7 +150,7 @@ export class AuthManager {
         if (reason instanceof Error) {
           reject(reason);
         } else {
-          reject(new DOMException('Aborted', 'AbortError'));
+          reject(createAbortError());
         }
       };
       signal.addEventListener('abort', abortHandler, { once: true });

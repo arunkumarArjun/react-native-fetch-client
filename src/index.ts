@@ -59,6 +59,7 @@ export type {
   PollOptions,
   WaitForOptions,
   DevToolsPrivacyFilter,
+  InternalRequestConfig,
 } from './types.js';
 
 // Error classes and type guards — stable API surface
@@ -74,6 +75,7 @@ export {
   ValidationError,
   CircuitBreakerError,
   WaitForAbortedError,
+  AuthRefreshError,
   isFetchNativeError,
   isHttpError,
   isNetworkError,
@@ -83,6 +85,8 @@ export {
   isValidationError,
   isCircuitBreakerError,
   isWaitForAbortedError,
+  isAuthRefreshError,
+  createAbortError,
 } from './errors.js';
 
 import { createClient } from './client.js';

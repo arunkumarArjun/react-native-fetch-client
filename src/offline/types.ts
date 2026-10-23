@@ -1,4 +1,4 @@
-import type { HttpMethod, HttpResponse, QueryParams, RequestConfig } from '../types.js';
+import type { HttpMethod, HttpResponse, PathParams, QueryParams, RequestConfig } from '../types.js';
 
 /**
  * Storage adapter interface for persistent offline queue.
@@ -19,6 +19,7 @@ export interface QueuedRequest {
   method: HttpMethod;
   headers?: Record<string, string>;
   params?: QueryParams;
+  pathParams?: PathParams;
   body?: string;
   enqueuedAt: number;
   attemptCount: number;
@@ -77,6 +78,13 @@ export interface OfflineQueueConfig {
    * Default: false.
    */
   autoSyncOnOnline?: boolean;
+  /**
+   * Custom network connectivity subscriber for non-browser environments like React Native
+   * (e.g. `@react-native-community/netinfo`).
+   * When connectivity is restored, invoke the `onOnline` callback to trigger `process()`.
+   * Return an unsubscribe function to be invoked on `queue.destroy()`.
+   */
+  subscribeOnline?: (onOnline: () => void) => (() => void) | void;
 }
 
 /**

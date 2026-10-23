@@ -1230,7 +1230,11 @@ export interface WaitForOptions<T = unknown> extends RequestConfig {
   /** HTTP status codes to ignore and continue waiting (e.g. [404]). Set true to ignore all HttpErrors. Default: [404]. */
   ignoreErrors?: number[] | boolean;
   /** Progress callback fired after each completed attempt. */
-  onTick?: (state: { attempt: number; elapsedMs: number; response?: HttpResponse<T> | undefined }) => void;
+  onTick?: (state: {
+    attempt: number;
+    elapsedMs: number;
+    response?: HttpResponse<T> | undefined;
+  }) => void;
 }
 
 /**

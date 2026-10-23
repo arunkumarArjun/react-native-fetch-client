@@ -64,7 +64,10 @@ describe('api.waitFor() - Intelligent Webhook & Async Poller', () => {
     expect(caughtError).toBeInstanceOf(WaitForAbortedError);
     expect(isWaitForAbortedError(caughtError)).toBe(true);
 
-    const abortedErr = caughtError as WaitForAbortedError<{ status: string; failureReason: string }>;
+    const abortedErr = caughtError as WaitForAbortedError<{
+      status: string;
+      failureReason: string;
+    }>;
     expect(abortedErr.response.data.status).toBe('failed');
     expect(abortedErr.response.data.failureReason).toBe('insufficient_funds');
     expect(abortedErr.code).toBe('WAIT_FOR_ABORTED');

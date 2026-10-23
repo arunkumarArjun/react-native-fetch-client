@@ -38,8 +38,14 @@ export class AuthManager {
         if (expired) {
           await this.refresh();
         }
-      } catch {
-        // Fall back to attempting request with existing token
+      } catch (err: unknown) {
+        // Fall back to attempting request with existing token, but log in debug/console
+        if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+          console.warn(
+            '[rnfc:auth] Pre-flight token expiration check or refresh failed; falling back to current token:',
+            err,
+          );
+        }
       }
     }
 

@@ -77,6 +77,13 @@ export interface OfflineQueueConfig {
    * Default: false.
    */
   autoSyncOnOnline?: boolean;
+  /**
+   * Custom network connectivity subscriber for non-browser environments like React Native
+   * (e.g. `@react-native-community/netinfo`).
+   * When connectivity is restored, invoke the `onOnline` callback to trigger `process()`.
+   * Return an unsubscribe function to be invoked on `queue.destroy()`.
+   */
+  subscribeOnline?: (onOnline: () => void) => (() => void) | void;
 }
 
 /**

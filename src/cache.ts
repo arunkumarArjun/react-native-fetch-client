@@ -15,6 +15,17 @@ export interface CacheEntry<T = unknown> {
   lastModified?: string;
 }
 
+/** Serialized cache entry format sanitized for persistent storage. */
+export interface SerializedCacheEntry {
+  data: unknown;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  expiresAt: number;
+  etag?: string;
+  lastModified?: string;
+}
+
 const DEFAULT_TTL_MS = 60_000;
 const DEFAULT_MAX_SIZE = 100;
 const SAFE_CACHE_METHODS: ReadonlySet<HttpMethod> = new Set(['GET', 'HEAD']);
@@ -42,8 +53,21 @@ export function cloneData<T>(data: T): T {
 }
 
 /**
+ * Deterministically hashes an authorization header to an opaque hex digest.
+ * Prevents raw authentication tokens and credentials from leaking into cache keys,
+ * debug logs, or unencrypted persistent storage.
+ */
+function hashAuthHeader(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+/**
  * Generates a cache key for a request.
- * Normalizes URL and includes authorization header hash/slice if authenticated caching is allowed.
+ * Normalizes URL and includes authorization header hash if authenticated caching is allowed.
  */
 export function generateCacheKey(
   method: string,
@@ -60,7 +84,7 @@ export function generateCacheKey(
   if (allowAuthenticated && headers) {
     const authHeader = headers['authorization'] ?? headers['Authorization'];
     if (authHeader) {
-      authPart = `|auth:${authHeader}`;
+      authPart = `|auth:${hashAuthHeader(authHeader)}`;
     }
   }
 
@@ -152,11 +176,51 @@ export class CacheManager implements ResponseCache {
     try {
       const raw = await this.storage.getItem(this.storageKey);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Array<[string, CacheEntry<unknown>]>;
+      const parsed = JSON.parse(raw) as Array<[string, SerializedCacheEntry | CacheEntry<unknown>]>;
       const now = Date.now();
       if (Array.isArray(parsed)) {
-        for (const [key, entry] of parsed) {
-          if (entry && typeof entry === 'object' && entry.expiresAt > now) {
+        for (const [key, rawEntry] of parsed) {
+          if (rawEntry && typeof rawEntry === 'object' && rawEntry.expiresAt > now) {
+            let entry: CacheEntry<unknown>;
+            if ('response' in rawEntry) {
+              entry = rawEntry;
+            } else {
+              const hydratedEntry: CacheEntry<unknown> = {
+                response: {
+                  data: rawEntry.data,
+                  status: rawEntry.status,
+                  statusText: rawEntry.statusText,
+                  headers: rawEntry.headers,
+                  config: {
+                    url: '',
+                    method: 'GET',
+                    headers: {},
+                    timeout: 0,
+                    responseType: 'json',
+                    retry: {
+                      attempts: 0,
+                      backoff: 'exponential',
+                      delay: 1000,
+                      maxDelay: 30000,
+                      jitter: true,
+                      retryOn: [429, 500, 502, 503, 504],
+                      safeMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'],
+                      respectRetryAfter: true,
+                    },
+                  },
+                  cached: true,
+                  fromDedup: false,
+                  request: (typeof Request !== 'undefined'
+                    ? new Request('http://localhost')
+                    : null) as unknown as Request,
+                },
+                expiresAt: rawEntry.expiresAt,
+              };
+              if (rawEntry.etag !== undefined) hydratedEntry.etag = rawEntry.etag;
+              if (rawEntry.lastModified !== undefined)
+                hydratedEntry.lastModified = rawEntry.lastModified;
+              entry = hydratedEntry;
+            }
             this.store.set(key, entry);
           }
         }
@@ -168,15 +232,26 @@ export class CacheManager implements ResponseCache {
 
   /**
    * Persists active (non-expired) cache entries to storage adapter.
+   * Whitelists only safe HTTP response fields, omitting outbound request headers
+   * and raw request objects to prevent credential leaks to unencrypted storage.
    */
   public async persist(): Promise<void> {
     if (!this.storage) return;
     try {
       const now = Date.now();
-      const entries: Array<[string, CacheEntry<unknown>]> = [];
+      const entries: Array<[string, SerializedCacheEntry]> = [];
       for (const [key, entry] of this.store.entries()) {
         if (entry.expiresAt > now) {
-          entries.push([key, entry]);
+          const serialized: SerializedCacheEntry = {
+            data: entry.response.data,
+            status: entry.response.status,
+            statusText: entry.response.statusText,
+            headers: entry.response.headers,
+            expiresAt: entry.expiresAt,
+          };
+          if (entry.etag !== undefined) serialized.etag = entry.etag;
+          if (entry.lastModified !== undefined) serialized.lastModified = entry.lastModified;
+          entries.push([key, serialized]);
         }
       }
       await this.storage.setItem(this.storageKey, JSON.stringify(entries));
@@ -344,6 +419,46 @@ export class CacheManager implements ResponseCache {
           keysToDelete.push(key);
         }
       } else if (pattern.test(key)) {
+        keysToDelete.push(key);
+      }
+    }
+
+    for (const key of keysToDelete) {
+      if (this.store.delete(key)) {
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0 && this.storage) void this.persist();
+
+    return deletedCount;
+  }
+
+  /**
+   * Deletes all cached entries whose pathname exactly matches the given path,
+   * regardless of query parameters or authorization partitions.
+   * Prevents over-eager invalidation of sibling or prefix endpoints.
+   *
+   * @param pathname The target URL pathname (e.g. '/users' or '/items/123').
+   * @returns The number of entries evicted.
+   */
+  public deleteExactPath(pathname: string): number {
+    let deletedCount = 0;
+    const keysToDelete: string[] = [];
+
+    for (const key of this.store.keys()) {
+      // Key format: `${METHOD}:${pathname}${search}${authPart}`
+      const colonIdx = key.indexOf(':');
+      if (colonIdx === -1) continue;
+      const keyUrlPart = key.slice(colonIdx + 1);
+      const questionIdx = keyUrlPart.indexOf('?');
+      const pipeIdx = keyUrlPart.indexOf('|');
+      let endIdx = keyUrlPart.length;
+      if (questionIdx !== -1) endIdx = Math.min(endIdx, questionIdx);
+      if (pipeIdx !== -1) endIdx = Math.min(endIdx, pipeIdx);
+      const keyPath = keyUrlPart.slice(0, endIdx);
+
+      if (keyPath === pathname) {
         keysToDelete.push(key);
       }
     }

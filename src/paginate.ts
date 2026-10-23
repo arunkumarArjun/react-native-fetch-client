@@ -66,7 +66,9 @@ function defaultExtractItems<T>(data: T): unknown[] {
 /**
  * Creates the PaginateHelper bound to an HttpClient instance.
  */
-export function createPaginateHelper(client: HttpClient): PaginateHelper {
+export function createPaginateHelper(
+  client: { get: HttpClient['get'] } | HttpClient,
+): PaginateHelper {
   /**
    * Async generator yielding pages of HttpResponse<TResponse>.
    */
@@ -143,17 +145,17 @@ export function createPaginateHelper(client: HttpClient): PaginateHelper {
           currentUrl = null;
         }
       } else if (strategy === 'offset') {
-        const pageSize = cfg.pageSize ?? 10;
-        currentOffset += pageSize;
+        const step = pageSize ?? 10;
+        currentOffset += step;
         const items = cfg.getItems ? cfg.getItems(res.data) : defaultExtractItems(res.data);
-        if (items.length === 0 || (cfg.pageSize !== undefined && items.length < cfg.pageSize)) {
+        if (items.length === 0 || (pageSize !== undefined && items.length < pageSize)) {
           currentUrl = null;
         }
       } else {
         // Strategy === 'page'
         currentPage++;
         const items = cfg.getItems ? cfg.getItems(res.data) : defaultExtractItems(res.data);
-        if (items.length === 0 || (cfg.pageSize !== undefined && items.length < cfg.pageSize)) {
+        if (items.length === 0 || (pageSize !== undefined && items.length < pageSize)) {
           currentUrl = null;
         }
       }

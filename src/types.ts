@@ -13,6 +13,7 @@
  */
 
 import type { FetchNativeError } from './errors.js';
+import type { CircuitBreaker } from './circuit-breaker.js';
 
 // ---------------------------------------------------------------------------
 
@@ -185,8 +186,8 @@ export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
  * Prevents cascading outages by short-circuiting calls to repeatedly failing endpoints.
  */
 export interface CircuitBreakerConfig {
-  /** Must be set to true to enable the circuit breaker. Default: false. */
-  enabled: boolean;
+  /** Whether the circuit breaker is enabled. Default: true when circuitBreaker config object is provided. */
+  enabled?: boolean;
   /** Number of consecutive failures before tripping from CLOSED to OPEN. Default: 5. */
   failureThreshold?: number;
   /** Time in milliseconds to remain OPEN before testing in HALF_OPEN state. Default: 30000 (30s). */
@@ -349,6 +350,9 @@ export interface RequestConfig {
   onDownloadProgress?: (event: ProgressEvent) => void;
   /**
    * Callback invoked as request body bytes are uploaded.
+   * Note: In standard Fetch runtimes without request body streaming,
+   * progress is synthetic (0 on start, 1 on completion).
+   * For fine-grained streaming progress, use `client.upload()`.
    */
   onUploadProgress?: (event: ProgressEvent) => void;
   /**
@@ -402,14 +406,6 @@ export interface RequestConfig {
    */
   circuitBreaker?: CircuitBreakerConfig | boolean;
   /**
-   * Internal tracking flag indicating whether this request is a post-refresh retry.
-   */
-  _isRefreshed?: boolean;
-  /** Internal tracking flag indicating whether this request is being executed inside dedup wrapper. */
-  _isFromDedup?: boolean;
-  /** Internal tracking flag indicating whether this request has already acquired a concurrency slot. */
-  _isFromConcurrency?: boolean;
-  /**
    * Cancellation group key. If a previous request is in-flight with the same group key,
    * it will be automatically aborted when this new request starts. Ideal for search/autocomplete.
    */
@@ -422,8 +418,6 @@ export interface RequestConfig {
    * Callback fired when background revalidation fails in 'stale-while-revalidate' mode.
    */
   onRevalidationError?: (error: unknown) => void;
-  /** Internal tracking flag indicating whether this request is a background SWR revalidation. */
-  _isRevalidating?: boolean;
   /**
    * Universal DevTools Stealth Mode:
    * Suppresses or masks sensitive requests, headers, and responses from developer tools
@@ -435,6 +429,21 @@ export interface RequestConfig {
    * @default false
    */
   hideFromDevTools?: DevToolsPrivacyFilter;
+}
+
+/**
+ * Internal request configuration used by the execution pipeline to carry runtime state.
+ * Extends public `RequestConfig` with private engine-level control flags.
+ */
+export interface InternalRequestConfig extends RequestConfig {
+  /** Internal tracking flag indicating whether this request is a post-refresh retry. */
+  _isRefreshed?: boolean;
+  /** Internal tracking flag indicating whether this request is being executed inside dedup wrapper. */
+  _isFromDedup?: boolean;
+  /** Internal tracking flag indicating whether this request has already acquired a concurrency slot. */
+  _isFromConcurrency?: boolean;
+  /** Internal tracking flag indicating whether this request is a background SWR revalidation. */
+  _isRevalidating?: boolean;
 }
 
 /**
@@ -760,6 +769,11 @@ export interface RequestCacheConfig {
    * Useful for mutations (POST, PUT, DELETE) to invalidate related collection endpoints.
    */
   invalidate?: Array<string | RegExp>;
+  /**
+   * Whether to automatically invalidate cache entries matching this request URL when this mutation succeeds.
+   * Default: true.
+   */
+  autoInvalidate?: boolean;
 }
 
 /** In-memory and persistent cache configuration for client-level setup. */
@@ -816,6 +830,11 @@ export interface CacheConfig {
    * Alias for `strategy`.
    */
   defaultStrategy?: 'cache-first' | 'stale-while-revalidate';
+  /**
+   * Whether mutation requests (POST, PUT, PATCH, DELETE) automatically purge matching cached URLs.
+   * Default: true.
+   */
+  autoInvalidateMutations?: boolean;
 }
 
 /**
@@ -832,6 +851,8 @@ export interface ResponseCache {
   delete(key: string): boolean;
   /** Delete all cache entries matching a string prefix or RegExp pattern. */
   deletePattern(pattern: string | RegExp): number;
+  /** Delete all cache entries matching an exact pathname ignoring query params. */
+  deleteExactPath?(pathname: string): number;
   /** Clear all cache entries. */
   clear(): void;
   /** Number of currently cached entries in memory. */
@@ -895,7 +916,8 @@ export type ErrorCode =
   | 'RETRY_EXHAUSTED' // all retry attempts were consumed
   | 'VALIDATION_ERROR' // response body failed schema validation
   | 'CIRCUIT_OPEN' // circuit breaker is OPEN, blocking the request
-  | 'WAIT_FOR_ABORTED'; // api.waitFor() was aborted by stopIf condition
+  | 'WAIT_FOR_ABORTED' // api.waitFor() was aborted by stopIf condition
+  | 'AUTH_REFRESH_FAILED'; // automatic token refresh failed
 
 // ---------------------------------------------------------------------------
 // Safe Client Interface
@@ -929,6 +951,10 @@ export interface SafeHttpClient {
   delete<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
   /** Alias for delete. */
   del<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
+  /** Send a safe HEAD request. */
+  head<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
+  /** Send a safe OPTIONS request. */
+  options<T = unknown>(url: string, config?: RequestConfig): Promise<SafeResult<T>>;
   /** Send a safe request with arbitrary method. */
   request<T = unknown>(
     config: RequestConfig & { url: string; method: HttpMethod },
@@ -1150,6 +1176,16 @@ export interface HttpClient {
    */
   del<T = unknown>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
   /**
+   * Send a HEAD request.
+   * @template T Expected type of the parsed response body (typically undefined).
+   */
+  head<T = unknown>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
+  /**
+   * Send an OPTIONS request.
+   * @template T Expected type of the parsed response body.
+   */
+  options<T = unknown>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
+  /**
    * Send a request with full configuration control.
    * All other methods delegate to this.
    */
@@ -1158,6 +1194,8 @@ export interface HttpClient {
   ): Promise<HttpResponse<T>>;
   /** Response cache manager. */
   cache: ResponseCache;
+  /** Circuit breaker instance if configured on the client. */
+  circuitBreaker?: CircuitBreaker;
   /** Request and response interceptor managers. */
   interceptors: {
     request: InterceptorManager<RequestConfig>;
@@ -1207,6 +1245,10 @@ export interface PollOptions<T = unknown> extends RequestConfig {
   until: (response: HttpResponse<T>) => boolean | Promise<boolean>;
   /** Optional backoff multiplier for interval growth (e.g. 1.5). Default: 1 (fixed interval). */
   backoff?: number;
+  /** Maximum interval cap in milliseconds when using backoff. Default: Infinity. */
+  maxInterval?: number;
+  /** HTTP status codes to ignore and continue polling (e.g. [404]). Set true to ignore all HttpErrors. Default: []. */
+  ignoreErrors?: number[] | boolean;
 }
 
 /**

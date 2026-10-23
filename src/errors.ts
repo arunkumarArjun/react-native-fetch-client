@@ -377,3 +377,30 @@ export class WaitForAbortedError<T = unknown> extends FetchNativeError {
 export function isWaitForAbortedError(err: unknown): err is WaitForAbortedError {
   return err instanceof WaitForAbortedError;
 }
+
+/**
+ * Thrown when an automated authentication token refresh attempt fails.
+ * Wraps the underlying error that caused the refresh failure in its `.cause` and `.originalError` properties.
+ */
+export class AuthRefreshError extends FetchNativeError {
+  readonly originalError: unknown;
+
+  constructor(originalError: unknown, options?: { config?: ResolvedRequestConfig }) {
+    const errorMsg = originalError instanceof Error ? originalError.message : String(originalError);
+    super(
+      `Authentication refresh failed: ${errorMsg}`,
+      'AUTH_REFRESH_FAILED',
+      buildOptions({
+        config: options?.config,
+        cause: originalError,
+      }),
+    );
+    this.name = 'AuthRefreshError';
+    this.originalError = originalError;
+  }
+}
+
+/** Returns true if `err` is an AuthRefreshError. */
+export function isAuthRefreshError(err: unknown): err is AuthRefreshError {
+  return err instanceof AuthRefreshError;
+}

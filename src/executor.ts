@@ -8,6 +8,7 @@ import {
   ParseError,
   ValidationError,
   CircuitBreakerError,
+  AuthRefreshError,
 } from './errors.js';
 import { buildUrl } from './url.js';
 import { mergeHeaders } from './headers.js';
@@ -22,7 +23,7 @@ import { isDevToolsHidden, withDevToolsSuppression } from './devtools.js';
 import type { ConcurrencyLimiter } from './concurrency.js';
 import type { AuthManager } from './auth.js';
 import type {
-  RequestConfig,
+  InternalRequestConfig,
   ClientConfig,
   ResolvedRequestConfig,
   HttpResponse,
@@ -30,13 +31,6 @@ import type {
   SchemaValidator,
   DebugLogEntry,
 } from './types.js';
-
-class AuthRefreshError extends Error {
-  constructor(public readonly originalError: unknown) {
-    super('Auth refresh failed');
-    this.name = 'AuthRefreshError';
-  }
-}
 
 async function dispatchFetch<T>(
   url: string,
@@ -170,7 +164,7 @@ async function dispatchFetch<T>(
 }
 
 export async function executeRequest<T = unknown>(
-  config: RequestConfig,
+  config: InternalRequestConfig,
   clientConfig: ClientConfig = {},
   authManager?: AuthManager,
   dedupManager?: DedupManager,
@@ -247,7 +241,7 @@ export async function executeRequest<T = unknown>(
 }
 
 async function executeRequestInternal<T = unknown>(
-  config: RequestConfig,
+  config: InternalRequestConfig,
   clientConfig: ClientConfig = {},
   authManager?: AuthManager,
   dedupManager?: DedupManager,
@@ -357,7 +351,7 @@ async function executeRequestInternal<T = unknown>(
         const staleResponse = cacheManager.get<T>(cacheKey, { allowStale: true });
         if (staleResponse !== undefined) {
           staleResponse.durationMs = Date.now() - startTime;
-          const revalidateConfig: RequestConfig = {
+          const revalidateConfig: InternalRequestConfig = {
             ...config,
             _isRevalidating: true,
           };
@@ -649,10 +643,25 @@ async function executeRequestInternal<T = unknown>(
             cacheManager.set(cacheKey, response, reqTtl);
           }
 
-          // On successful mutation, invalidate matching URL/path in cache
-          if (cacheManager && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
+          // On successful mutation, invalidate matching URL/path in cache if auto-invalidation is active
+          const shouldAutoInvalidate =
+            (typeof config.cache !== 'object' || config.cache.autoInvalidate !== false) &&
+            clientConfig.cache?.autoInvalidateMutations !== false;
+
+          if (
+            cacheManager &&
+            shouldAutoInvalidate &&
+            ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
+          ) {
             const urlObj = new URL(resolvedUrl, 'http://localhost');
-            cacheManager.deletePattern(urlObj.pathname);
+            const pathname = urlObj.pathname;
+            if (pathname && pathname !== '/') {
+              if (typeof cacheManager.deleteExactPath === 'function') {
+                cacheManager.deleteExactPath(pathname);
+              } else {
+                cacheManager.deletePattern(pathname);
+              }
+            }
           }
 
           // Custom declarative cache invalidation (e.g. cache: { invalidate: ['/users'] })
@@ -691,7 +700,7 @@ async function executeRequestInternal<T = unknown>(
             cleanup();
             try {
               await authManager.waitForRefresh(totalController.signal);
-              const retriedConfig: RequestConfig = {
+              const retriedConfig: InternalRequestConfig = {
                 ...config,
                 _isRefreshed: true,
               };
@@ -712,7 +721,7 @@ async function executeRequestInternal<T = unknown>(
                 if (reason instanceof CancelError) throw reason;
                 throw new CancelError({ config: resolvedConfig, cause: reason });
               }
-              throw new AuthRefreshError(refreshErr);
+              throw new AuthRefreshError(refreshErr, { config: resolvedConfig });
             }
           }
 
@@ -745,7 +754,12 @@ async function executeRequestInternal<T = unknown>(
     activeBreaker?.recordFailure(err);
     logError(err);
 
-    if (err instanceof AuthRefreshError) throw err.originalError;
+    if (err instanceof AuthRefreshError) {
+      if (err.originalError instanceof Error) {
+        throw err.originalError;
+      }
+      throw new Error(String(err.originalError), { cause: err });
+    }
     if (err instanceof TimeoutError) throw err;
     if (err instanceof CancelError) throw err;
     if (err instanceof RetryExhaustedError) throw err;

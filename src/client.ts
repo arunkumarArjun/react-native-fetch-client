@@ -44,7 +44,6 @@ import type {
   StreamOptions,
   UploadFileSource,
   UploadOptions,
-  PaginateHelper,
   PollOptions,
   WaitForOptions,
 } from './types.js';
@@ -117,9 +116,10 @@ export function createClient(config: ClientConfig = {}): HttpClient {
   const cacheManager = new CacheManager(config.cache);
   const cancelGroups = new Map<string, AbortController>();
 
-  const circuitBreaker = config.circuitBreaker?.enabled
-    ? new CircuitBreaker(config.circuitBreaker)
-    : undefined;
+  const circuitBreaker =
+    config.circuitBreaker && config.circuitBreaker.enabled !== false
+      ? new CircuitBreaker(config.circuitBreaker)
+      : undefined;
 
   const concurrencyLimiter =
     config.maxConcurrentRequests !== undefined && config.maxConcurrentRequests > 0
@@ -258,6 +258,10 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
+    head: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      safeRequest<T>({ ...reqConfig, url, method: 'HEAD' }),
+    options: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      safeRequest<T>({ ...reqConfig, url, method: 'OPTIONS' }),
     request: <T = unknown>(reqConfig: RequestConfig & { url: string; method: HttpMethod }) =>
       safeRequest<T>(reqConfig),
   };
@@ -580,24 +584,31 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       request<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'DELETE' }),
+    head: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      request<T>({ ...reqConfig, url, method: 'HEAD' }),
+    options: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+      request<T>({ ...reqConfig, url, method: 'OPTIONS' }),
     safe,
     stream,
     upload,
     poll: <T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>> =>
       waitFor<T>(url, {
-        ...options,
         ignoreErrors: [],
         maxInterval: Infinity,
+        ...options,
       }),
     waitFor,
-    paginate: null as unknown as PaginateHelper,
+    paginate: createPaginateHelper({
+      get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+        request<T>({ ...reqConfig, url, method: 'GET' }),
+    }),
     cache: cacheManager,
+    ...(circuitBreaker ? { circuitBreaker } : {}),
     interceptors: {
       request: requestInterceptors,
       response: responseInterceptors,
     },
   };
 
-  client.paginate = createPaginateHelper(client);
   return client;
 }

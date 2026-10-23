@@ -317,18 +317,33 @@ export function createOfflineQueue(config: OfflineQueueConfig): OfflineQueue {
   };
 
   let onlineListener: (() => void) | undefined;
-  if (
-    config.autoSyncOnOnline &&
-    typeof window !== 'undefined' &&
-    typeof window.addEventListener === 'function'
-  ) {
-    onlineListener = () => {
+  let customOnlineUnsubscribe: (() => void) | undefined;
+
+  if (config.autoSyncOnOnline) {
+    const triggerSync = () => {
       process().catch(() => {});
     };
-    window.addEventListener('online', onlineListener);
+
+    if (typeof config.subscribeOnline === 'function') {
+      const unsub = config.subscribeOnline(triggerSync);
+      if (typeof unsub === 'function') {
+        customOnlineUnsubscribe = unsub;
+      }
+    } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      onlineListener = triggerSync;
+      window.addEventListener('online', onlineListener);
+    }
   }
 
   const destroy = (): void => {
+    if (customOnlineUnsubscribe) {
+      try {
+        customOnlineUnsubscribe();
+      } catch {
+        // Safe no-op
+      }
+      customOnlineUnsubscribe = undefined;
+    }
     if (
       onlineListener &&
       typeof window !== 'undefined' &&

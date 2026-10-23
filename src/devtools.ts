@@ -68,9 +68,24 @@ export function isDevToolsHidden(url: string, filter?: DevToolsPrivacyFilter): b
 }
 
 /**
- * Tracks currently suppressed active request URLs to prevent race conditions.
+ * Tracks currently suppressed active request URLs with reference counting to prevent race conditions
+ * across concurrent requests to the same URL or between multiple client instances.
  */
-const activeSuppressedUrls = new Set<string>();
+const activeSuppressedUrls = new Map<string, number>();
+
+function trackSuppressedUrl(url: string): void {
+  const current = activeSuppressedUrls.get(url) ?? 0;
+  activeSuppressedUrls.set(url, current + 1);
+}
+
+function untrackSuppressedUrl(url: string): void {
+  const current = activeSuppressedUrls.get(url) ?? 0;
+  if (current <= 1) {
+    activeSuppressedUrls.delete(url);
+  } else {
+    activeSuppressedUrls.set(url, current - 1);
+  }
+}
 
 /**
  * Safely accesses React Native's internal XHRInterceptor if running in React Native.
@@ -129,7 +144,7 @@ export async function withDevToolsSuppression<T>(
     return fn();
   }
 
-  activeSuppressedUrls.add(url);
+  trackSuppressedUrl(url);
   const interceptor = getReactNativeXHRInterceptor();
 
   let originalSendCallback: XHRSendCallback | undefined;
@@ -176,9 +191,10 @@ export async function withDevToolsSuppression<T>(
   try {
     return await fn();
   } finally {
-    activeSuppressedUrls.delete(url);
+    untrackSuppressedUrl(url);
 
-    if (isHooked && interceptor) {
+    // Only restore global interceptor callbacks when all suppressed requests across all clients have finished
+    if (activeSuppressedUrls.size === 0 && isHooked && interceptor) {
       try {
         if (typeof originalSendCallback === 'function') {
           interceptor.setSendCallback(originalSendCallback);

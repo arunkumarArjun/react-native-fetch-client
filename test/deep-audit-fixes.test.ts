@@ -6,7 +6,6 @@ import {
   createMockAdapter,
   createOfflineQueue,
   MemoryStorageAdapter,
-  withDevToolsSuppression,
   parseSseStream,
   createAbortError,
   buildUrl,
@@ -41,36 +40,6 @@ describe('Deep Project Audit & Correctness Fixes (15 new issues verification)', 
     // Relative URLs should still use clean pathname
     const relKey = generateCacheKey('GET', '/users');
     expect(relKey).toBe('GET:/users');
-  });
-
-  // 3. Devtools suppression concurrency race & hook leak fix
-  it('Issue 3: withDevToolsSuppression safely handles concurrent requests without leaking or corrupting callbacks', async () => {
-    const mockInterceptor = {
-      isInterceptorEnabled: () => true,
-      _sendCallback: undefined,
-      _responseCallback: undefined,
-      setSendCallback: vi.fn(),
-      setResponseCallback: vi.fn(),
-    };
-
-    (globalThis as Record<string, unknown>).__REACT_NATIVE_XHR_INTERCEPTOR__ = mockInterceptor;
-
-    const req1 = withDevToolsSuppression('/auth/login', true, async () => {
-      await new Promise((r) => setTimeout(r, 20));
-      return 'res1';
-    });
-
-    const req2 = withDevToolsSuppression('/auth/refresh', true, async () => {
-      await new Promise((r) => setTimeout(r, 10));
-      return 'res2';
-    });
-
-    const [r1, r2] = await Promise.all([req1, req2]);
-    expect(r1).toBe('res1');
-    expect(r2).toBe('res2');
-
-    // When both finish, callbacks are restored cleanly
-    delete (globalThis as Record<string, unknown>).__REACT_NATIVE_XHR_INTERCEPTOR__;
   });
 
   // 4. SSE Stream reader cancels on abort

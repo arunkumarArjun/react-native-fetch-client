@@ -20,7 +20,6 @@ import { generateDedupKey, isDedupEligible, type DedupManager } from './dedup.js
 import { generateCacheKey, isCacheEligible, type CacheManager } from './cache.js';
 import { validateData } from './validator.js';
 import { CircuitBreaker } from './circuit-breaker.js';
-import { isDevToolsHidden, withDevToolsSuppression } from './devtools.js';
 import type { ConcurrencyLimiter } from './concurrency.js';
 import type { AuthManager } from './auth.js';
 import type {
@@ -487,10 +486,6 @@ async function executeRequestInternal<T = unknown>(
     resolvedConfig.headers['authorization'] = '[REDACTED]';
   }
 
-  const hideOpt = config.hideFromDevTools ?? clientConfig.hideFromDevTools;
-  const isHidden = isDevToolsHidden(resolvedUrl, hideOpt);
-  resolvedConfig.hideFromDevTools = isHidden;
-
   let totalTimerId: ReturnType<typeof setTimeout> | undefined;
   let onCallerAbort: (() => void) | undefined;
   const totalController = new AbortController();
@@ -565,7 +560,7 @@ async function executeRequestInternal<T = unknown>(
   const debugOpt = config.debug ?? clientConfig.debug;
 
   const logSuccess = (res: HttpResponse<T>) => {
-    if (isHidden || !debugOpt) return;
+    if (!debugOpt) return;
     const durationMs = Date.now() - startTime;
     const entry: DebugLogEntry = {
       method,
@@ -587,7 +582,7 @@ async function executeRequestInternal<T = unknown>(
   };
 
   const logError = (err: unknown) => {
-    if (isHidden || !debugOpt) return;
+    if (!debugOpt) return;
     const durationMs = Date.now() - startTime;
     const entry: DebugLogEntry = {
       method,
@@ -610,150 +605,148 @@ async function executeRequestInternal<T = unknown>(
   let lastError: unknown;
 
   try {
-    return await withDevToolsSuppression(resolvedUrl, isHidden, async () => {
-      while (true) {
-        attempt++;
-        try {
-          let response = await dispatchFetch<T>(
-            resolvedUrl,
-            method,
-            baseHeaders,
-            body,
-            credentials,
-            redirect,
-            dispatcher,
-            responseType,
-            resolvedConfig,
-            fetchImpl,
-            totalController.signal,
-            onDownloadProgress,
-          );
-          cleanup();
+    while (true) {
+      attempt++;
+      try {
+        let response = await dispatchFetch<T>(
+          resolvedUrl,
+          method,
+          baseHeaders,
+          body,
+          credentials,
+          redirect,
+          dispatcher,
+          responseType,
+          resolvedConfig,
+          fetchImpl,
+          totalController.signal,
+          onDownloadProgress,
+        );
+        cleanup();
 
-          // 7. Handle 304 Not Modified cache revalidation
-          if (response.status === 304 && cacheManager && cacheKey) {
-            const reqTtl =
-              typeof config.cache === 'object' && config.cache.ttl !== undefined
-                ? config.cache.ttl
-                : undefined;
-            const updated = cacheManager.updateFrom304<T>(cacheKey, response.headers, reqTtl);
-            if (updated) {
-              response = updated;
-            }
-          } else if (cacheEligible && cacheManager) {
-            // Store successful response in cache
-            const reqTtl =
-              typeof config.cache === 'object' && config.cache.ttl !== undefined
-                ? config.cache.ttl
-                : undefined;
-            cacheManager.set(cacheKey, response, reqTtl);
+        // 7. Handle 304 Not Modified cache revalidation
+        if (response.status === 304 && cacheManager && cacheKey) {
+          const reqTtl =
+            typeof config.cache === 'object' && config.cache.ttl !== undefined
+              ? config.cache.ttl
+              : undefined;
+          const updated = cacheManager.updateFrom304<T>(cacheKey, response.headers, reqTtl);
+          if (updated) {
+            response = updated;
           }
-
-          // On successful mutation, invalidate matching URL/path in cache if auto-invalidation is active
-          const shouldAutoInvalidate =
-            (typeof config.cache !== 'object' || config.cache.autoInvalidate !== false) &&
-            clientConfig.cache?.autoInvalidateMutations !== false;
-
-          if (
-            cacheManager &&
-            shouldAutoInvalidate &&
-            ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
-          ) {
-            const urlObj = new URL(resolvedUrl, 'http://localhost');
-            const pathname = urlObj.pathname;
-            if (pathname && pathname !== '/') {
-              if (typeof cacheManager.deleteExactPath === 'function') {
-                cacheManager.deleteExactPath(pathname);
-              } else {
-                cacheManager.deletePattern(pathname);
-              }
-            }
-          }
-
-          // Custom declarative cache invalidation (e.g. cache: { invalidate: ['/users'] })
-          if (cacheManager && typeof config.cache === 'object' && config.cache.invalidate) {
-            for (const pattern of config.cache.invalidate) {
-              cacheManager.deletePattern(pattern);
-            }
-          }
-
-          // 8. Standard Schema / Duck-Typing Schema Validation
-          if (config.schema) {
-            const validatedData = await validateData<T>(
-              config.schema as SchemaValidator<T>,
-              response.data,
-              resolvedConfig,
-            );
-            response = {
-              ...response,
-              data: validatedData,
-            };
-          }
-
-          // Record success in circuit breaker
-          activeBreaker?.recordSuccess();
-
-          response.durationMs = Date.now() - startTime;
-          logSuccess(response);
-          return response;
-        } catch (err: unknown) {
-          lastError = err;
-
-          if (
-            authManager &&
-            authManager.isEligibleForRefresh(err, resolvedUrl, config._isRefreshed, config.auth)
-          ) {
-            cleanup();
-            try {
-              await authManager.waitForRefresh(totalController.signal);
-              const retriedConfig: InternalRequestConfig = {
-                ...config,
-                _isRefreshed: true,
-              };
-              return await executeRequest<T>(
-                retriedConfig,
-                clientConfig,
-                authManager,
-                dedupManager,
-                cacheManager,
-                circuitBreaker,
-                concurrencyLimiter,
-                cancelGroups,
-              );
-            } catch (refreshErr: unknown) {
-              if (totalController.signal.aborted) {
-                const reason: unknown = totalController.signal.reason;
-                if (reason instanceof TimeoutError) throw reason;
-                if (reason instanceof CancelError) throw reason;
-                throw new CancelError({ config: resolvedConfig, cause: reason });
-              }
-              throw new AuthRefreshError(refreshErr, { config: resolvedConfig });
-            }
-          }
-
-          if (shouldRetry(err, attempt, resolvedConfig)) {
-            const delayMs = calculateRetryDelay(attempt, resolvedConfig.retry, err);
-            try {
-              await sleep(delayMs, totalController.signal);
-              continue;
-            } catch (sleepErr: unknown) {
-              if (totalController.signal.aborted) {
-                const reason: unknown = totalController.signal.reason;
-                if (reason instanceof TimeoutError) throw reason;
-                if (reason instanceof CancelError) throw reason;
-                throw new CancelError({ config: resolvedConfig, cause: reason });
-              }
-              throw sleepErr;
-            }
-          }
-
-          if (attempt > 1) {
-            throw new RetryExhaustedError(attempt, lastError, { config: resolvedConfig });
-          }
-          throw lastError;
+        } else if (cacheEligible && cacheManager) {
+          // Store successful response in cache
+          const reqTtl =
+            typeof config.cache === 'object' && config.cache.ttl !== undefined
+              ? config.cache.ttl
+              : undefined;
+          cacheManager.set(cacheKey, response, reqTtl);
         }
+
+        // On successful mutation, invalidate matching URL/path in cache if auto-invalidation is active
+        const shouldAutoInvalidate =
+          (typeof config.cache !== 'object' || config.cache.autoInvalidate !== false) &&
+          clientConfig.cache?.autoInvalidateMutations !== false;
+
+        if (
+          cacheManager &&
+          shouldAutoInvalidate &&
+          ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
+        ) {
+          const urlObj = new URL(resolvedUrl, 'http://localhost');
+          const pathname = urlObj.pathname;
+          if (pathname && pathname !== '/') {
+            if (typeof cacheManager.deleteExactPath === 'function') {
+              cacheManager.deleteExactPath(pathname);
+            } else {
+              cacheManager.deletePattern(pathname);
+            }
+          }
+        }
+
+        // Custom declarative cache invalidation (e.g. cache: { invalidate: ['/users'] })
+        if (cacheManager && typeof config.cache === 'object' && config.cache.invalidate) {
+          for (const pattern of config.cache.invalidate) {
+            cacheManager.deletePattern(pattern);
+          }
+        }
+
+        // 8. Standard Schema / Duck-Typing Schema Validation
+        if (config.schema) {
+          const validatedData = await validateData<T>(
+            config.schema as SchemaValidator<T>,
+            response.data,
+            resolvedConfig,
+          );
+          response = {
+            ...response,
+            data: validatedData,
+          };
+        }
+
+        // Record success in circuit breaker
+        activeBreaker?.recordSuccess();
+
+        response.durationMs = Date.now() - startTime;
+        logSuccess(response);
+        return response;
+      } catch (err: unknown) {
+        lastError = err;
+
+        if (
+          authManager &&
+          authManager.isEligibleForRefresh(err, resolvedUrl, config._isRefreshed, config.auth)
+        ) {
+          cleanup();
+          try {
+            await authManager.waitForRefresh(totalController.signal);
+            const retriedConfig: InternalRequestConfig = {
+              ...config,
+              _isRefreshed: true,
+            };
+            return await executeRequest<T>(
+              retriedConfig,
+              clientConfig,
+              authManager,
+              dedupManager,
+              cacheManager,
+              circuitBreaker,
+              concurrencyLimiter,
+              cancelGroups,
+            );
+          } catch (refreshErr: unknown) {
+            if (totalController.signal.aborted) {
+              const reason: unknown = totalController.signal.reason;
+              if (reason instanceof TimeoutError) throw reason;
+              if (reason instanceof CancelError) throw reason;
+              throw new CancelError({ config: resolvedConfig, cause: reason });
+            }
+            throw new AuthRefreshError(refreshErr, { config: resolvedConfig });
+          }
+        }
+
+        if (shouldRetry(err, attempt, resolvedConfig)) {
+          const delayMs = calculateRetryDelay(attempt, resolvedConfig.retry, err);
+          try {
+            await sleep(delayMs, totalController.signal);
+            continue;
+          } catch (sleepErr: unknown) {
+            if (totalController.signal.aborted) {
+              const reason: unknown = totalController.signal.reason;
+              if (reason instanceof TimeoutError) throw reason;
+              if (reason instanceof CancelError) throw reason;
+              throw new CancelError({ config: resolvedConfig, cause: reason });
+            }
+            throw sleepErr;
+          }
+        }
+
+        if (attempt > 1) {
+          throw new RetryExhaustedError(attempt, lastError, { config: resolvedConfig });
+        }
+        throw lastError;
       }
-    });
+    }
   } catch (err: unknown) {
     cleanup();
 

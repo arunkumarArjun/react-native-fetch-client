@@ -41,7 +41,6 @@ In traditional HTTP setups, achieving production resilience requires installing,
 | :--- | :--- |
 | **Single-Flight 401 Auth Mutex** | Queues concurrent requests behind an asynchronous lock when access tokens expire. Exactly 1 refresh call executes; pending requests replay automatically with the new token. |
 | **In-Flight Request Deduplication** | Coalesces identical concurrent `GET` requests into a single network flight, eliminating duplicate requests when multiple UI components mount simultaneously. |
-| **Universal DevTools Stealth Mode** | Built-in `hideFromDevTools` filter that suppresses sensitive endpoints (credentials, payments, biometrics) from appearing in Chrome Inspect, Hermes Debugger, and Flipper. |
 | **Async Webhook & Resource Waiter** | Dedicated `api.waitFor()` method for polling payment settlement (3DS, Apple Pay, UPI), KYC verification, or background jobs with error suppression, backoff caps, and abort criteria. |
 | **Response Caching & SWR** | Dual-tier caching: in-memory LRU, persistent storage adapters (MMKV / AsyncStorage), RFC 7234 conditional validation (ETag / 304), and Stale-While-Revalidate (SWR) background revalidation. |
 | **Automatic Cache Invalidation** | Mutations (`POST`, `PUT`, `PATCH`, `DELETE`) automatically purge matching cached paths, with support for declarative route and RegExp pattern invalidation. |
@@ -352,7 +351,6 @@ Options passed to `createClient(config)`:
 | `retry` | `Partial<RetryPolicy> \| false` | `undefined` | Retry engine configuration (attempts, backoff, jitter, status codes). |
 | `circuitBreaker` | `CircuitBreakerConfig \| boolean` | `undefined` | Circuit breaker failure threshold and reset timeout configuration. |
 | `maxConcurrentRequests` | `number` | `0` | Maximum simultaneous active requests (0 = unlimited). |
-| `hideFromDevTools` | `DevToolsPrivacyFilter` | `false` | Universal DevTools stealth mode filter (`true`, `string[]`, `RegExp[]`). |
 | `unwrap` | `boolean` | `false` | When true, returns `response.data` directly instead of `HttpResponse<T>`. |
 | `debug` | `boolean \| DebugLogger` | `false` | Enable console debug logging or provide a custom logger callback. |
 | `fetchImpl` | `FetchImpl` | `globalThis.fetch` | Custom Fetch transport implementation. |
@@ -379,7 +377,6 @@ Options passed to individual request calls (overrides client defaults):
 | `dedup` | `boolean` | Inherited | Enable or disable in-flight deduplication for this request. |
 | `retry` | `Partial<RetryPolicy> \| false` | Inherited | Per-request retry policy override. |
 | `circuitBreaker` | `CircuitBreakerConfig \| boolean` | Inherited | Per-request circuit breaker override. |
-| `hideFromDevTools` | `DevToolsPrivacyFilter` | Inherited | Override DevTools stealth suppression for this request. |
 | `unwrap` | `boolean` | Inherited | Override response unwrapping for this request. |
 | `onDownloadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time download progress callback. |
 | `onUploadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time upload progress callback. |

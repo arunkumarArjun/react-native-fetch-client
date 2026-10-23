@@ -153,36 +153,7 @@ const api = createClient({
 
 ---
 
-## 3. Universal DevTools Stealth Mode (`hideFromDevTools`)
-
-For sensitive endpoints (such as payments, biometrics, credentials, or audit routes), `hideFromDevTools` prevents requests, headers, and response payloads from appearing in runtime debugging tools:
-
-- **React Native (iOS and Android)**: Hooks React Native's internal `XHRInterceptor` to drop both request send callbacks and response delivery callbacks for matching endpoints. Requests remain invisible in Chrome Inspect (`chrome://inspect`), Hermes Debugger, and Flipper.
-- **Console and Diagnostic Loggers**: Suppresses debug logging and error logging traces for matching requests.
-- **Web Browsers**: Suppresses console and client-level logging (browser C++ network panels remain visible under W3C sandboxing rules).
-
-### Usage
-
-```typescript
-// 1. Client-level configuration
-const api = createClient({
-  baseURL: 'https://api.example.com',
-  // Match by boolean, string substrings, or RegExp patterns:
-  hideFromDevTools: ['/auth', '/payment', /card-\d+/],
-});
-
-// Matching requests are suppressed from DevTools:
-await api.post('/payment/charge', { cardToken: 'tok_secret' });
-
-// 2. Request-level override
-await api.get('/account/private-keys', {
-  hideFromDevTools: true,
-});
-```
-
----
-
-## 4. Security and Data Protection
+## 3. Security and Data Protection
 
 ### Automatic Credential Redaction
 When debug logging is enabled (`debug: true` or custom logger), authorization headers (`Authorization: Bearer [REDACTED]`) and cookies are redacted automatically to prevent sensitive tokens from leaking into system logs or external monitoring platforms.

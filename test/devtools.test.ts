@@ -82,7 +82,8 @@ describe('Stealth Mode Client Integration', () => {
     // 2. Non-hidden request: debug logger should be called
     await client.get('/public');
     expect(debugLogger).toHaveBeenCalledTimes(1);
-    expect(debugLogger.mock.calls[0]?.[0]?.url).toContain('/public');
+    const firstCallArgs = debugLogger.mock.calls[0] as [{ url: string }];
+    expect(firstCallArgs[0]?.url).toContain('/public');
   });
 
   it('allows request-level override of hideFromDevTools', async () => {
@@ -125,31 +126,44 @@ describe('Stealth Mode Client Integration', () => {
   });
 });
 
+interface MockXHR {
+  _url?: string;
+}
+
+type MockSendCallback = (data: unknown, xhr: MockXHR) => void;
+type MockResponseCallback = (status: number, timeout: number, response: unknown, url?: string) => void;
+
+interface MockInterceptor {
+  isInterceptorEnabled: () => boolean;
+  setSendCallback: (cb: MockSendCallback) => void;
+  setResponseCallback: (cb: MockResponseCallback) => void;
+  _sendCallback?: MockSendCallback;
+  _responseCallback?: MockResponseCallback;
+}
+
+interface TestGlobalScope {
+  __REACT_NATIVE_XHR_INTERCEPTOR__?: MockInterceptor;
+}
+
 describe('React Native XHRInterceptor Suppression Simulation', () => {
-  let mockInterceptor: {
-    isInterceptorEnabled: () => boolean;
-    setSendCallback: (cb: any) => void;
-    setResponseCallback: (cb: any) => void;
-    _sendCallback?: any;
-    _responseCallback?: any;
-  };
+  let mockInterceptor: MockInterceptor;
 
   beforeEach(() => {
     mockInterceptor = {
       isInterceptorEnabled: vi.fn(() => true),
-      setSendCallback: vi.fn((cb) => {
+      setSendCallback: vi.fn((cb: MockSendCallback) => {
         mockInterceptor._sendCallback = cb;
       }),
-      setResponseCallback: vi.fn((cb) => {
+      setResponseCallback: vi.fn((cb: MockResponseCallback) => {
         mockInterceptor._responseCallback = cb;
       }),
     };
 
-    (globalThis as any).__REACT_NATIVE_XHR_INTERCEPTOR__ = mockInterceptor;
+    (globalThis as unknown as TestGlobalScope).__REACT_NATIVE_XHR_INTERCEPTOR__ = mockInterceptor;
   });
 
   afterEach(() => {
-    delete (globalThis as any).__REACT_NATIVE_XHR_INTERCEPTOR__;
+    delete (globalThis as unknown as TestGlobalScope).__REACT_NATIVE_XHR_INTERCEPTOR__;
   });
 
   it('mutes send callback for matching hidden URL and restores original after execution', async () => {
@@ -157,24 +171,29 @@ describe('React Native XHRInterceptor Suppression Simulation', () => {
     mockInterceptor._sendCallback = originalCallback;
 
     const url = 'https://api.test/secure-payment';
-    let sendCallbackDuringExecution: any;
+    let sendCallbackDuringExecution: MockSendCallback | undefined;
 
     await withDevToolsSuppression(url, true, async () => {
       // Capture the callback installed by withDevToolsSuppression
       sendCallbackDuringExecution = mockInterceptor._sendCallback;
 
       // Simulate DevTools trying to record the hidden request
-      const fakeXhr = { _url: url };
-      sendCallbackDuringExecution('payload', fakeXhr);
+      const fakeXhr: MockXHR = { _url: url };
+      if (sendCallbackDuringExecution) {
+        sendCallbackDuringExecution('payload', fakeXhr);
+      }
 
       // The original callback should NOT have been invoked because it matched!
       expect(originalCallback).not.toHaveBeenCalled();
 
       // Simulate a non-hidden request passing through
-      const publicXhr = { _url: 'https://api.test/public' };
-      sendCallbackDuringExecution('public-payload', publicXhr);
+      const publicXhr: MockXHR = { _url: 'https://api.test/public' };
+      if (sendCallbackDuringExecution) {
+        sendCallbackDuringExecution('public-payload', publicXhr);
+      }
       expect(originalCallback).toHaveBeenCalledWith('public-payload', publicXhr);
 
+      await Promise.resolve();
       return 'success';
     });
 

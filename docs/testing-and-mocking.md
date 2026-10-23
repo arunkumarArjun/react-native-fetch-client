@@ -1,10 +1,10 @@
-# Testing & Mock Adapter Guide
+# Testing and Mock Adapter Guide
 
-This guide demonstrates how to unit-test network calls and API integration code using **`createMockAdapter`** — completely built-in with zero external dependencies (no need for `axios-mock-adapter`, `msw`, or manual `globalThis.fetch` mocking).
+This guide demonstrates how to unit-test network calls and API integration code using **`createMockAdapter`** — built-in with zero external dependencies (no need for `axios-mock-adapter`, `msw`, or manual `globalThis.fetch` mocking).
 
 ---
 
-## 🧪 1. Overview & Setup
+## 1. Overview and Setup
 
 `createMockAdapter` attaches directly to your `HttpClient` instance, intercepting matching routes, recording request history, and responding with mock fixtures or errors:
 
@@ -46,7 +46,7 @@ describe('UserService Unit Tests', () => {
 
 ---
 
-## 🎯 2. Route Matching
+## 2. Route Matching
 
 ### Exact String Match
 ```typescript
@@ -68,7 +68,7 @@ mock.onAny('/health').reply(200, { status: 'healthy' });
 
 ---
 
-## 📬 3. Response Actions
+## 3. Response Actions
 
 ### 1. Static Reply
 ```typescript
@@ -107,7 +107,7 @@ await expect(api.post('/sync', {})).rejects.toThrowError(/Failed to connect/);
 
 ---
 
-## 📜 4. Request History & Assertions
+## 4. Request History and Assertions
 
 `mock.history` captures full records of intercepted requests:
 
@@ -129,29 +129,28 @@ expect(orderCall.headers?.['x-tracking-id']).toBe('track_9988');
 ```
 
 Available history collections:
-* `mock.history.all`: Array of all calls across all HTTP methods.
-* `mock.history.get`: Only GET calls.
-* `mock.history.post`: Only POST calls.
-* `mock.history.put`: Only PUT calls.
-* `mock.history.patch`: Only PATCH calls.
-* `mock.history.delete`: Only DELETE calls.
-* `mock.history.head`: Only HEAD calls.
-* `mock.history.options`: Only OPTIONS calls.
+- `mock.history.all`: Array of all calls across all HTTP methods.
+- `mock.history.get`: GET calls.
+- `mock.history.post`: POST calls.
+- `mock.history.put`: PUT calls.
+- `mock.history.patch`: PATCH calls.
+- `mock.history.delete`: DELETE calls.
+- `mock.history.head`: HEAD calls.
+- `mock.history.options`: OPTIONS calls.
 
 ---
 
-## 🧹 5. Lifecycle & Reset Controls
+## 5. Lifecycle and Reset Controls
 
 | Method | Behavior |
 | :--- | :--- |
 | `mock.resetHandlers()` | Clears all registered route rules while preserving request history. |
 | `mock.resetHistory()` | Clears recorded call history while keeping registered routes intact. |
-| `mock.reset()` | Clears **both** registered handlers and captured history. |
+| `mock.reset()` | Clears both registered handlers and captured history. |
 | `mock.restore()` | Detaches the mock adapter and restores the original Fetch transport on the client. |
 
 ```typescript
 afterEach(() => {
-  mock.restore(); // Highly recommended in test suites!
+  mock.restore();
 });
 ```
-

@@ -425,7 +425,7 @@ export interface RequestConfig {
   /** Internal tracking flag indicating whether this request is a background SWR revalidation. */
   _isRevalidating?: boolean;
   /**
-   * 🛡️ Universal DevTools Stealth Mode:
+   * Universal DevTools Stealth Mode:
    * Suppresses or masks sensitive requests, headers, and responses from developer tools
    * across Mobile (chrome://inspect, Flipper), Web browsers, and Node.js inspector.
    *
@@ -514,7 +514,7 @@ export interface ClientConfig extends Omit<
    */
   unwrap?: boolean;
   /**
-   * 🛡️ Universal DevTools Stealth Mode default:
+   * Universal DevTools Stealth Mode default:
    * Suppresses or masks requests from developer tools across Mobile, Web, and Node.js.
    */
   hideFromDevTools?: DevToolsPrivacyFilter;

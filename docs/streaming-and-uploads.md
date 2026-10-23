@@ -1,10 +1,10 @@
-# Streaming, AI & File Uploads
+# Streaming, AI, and File Uploads
 
-This guide demonstrates how to consume real-time Server-Sent Events (SSE) and AI LLM token streams, track upload and download progress in real time, and upload binary files with **`react-native-fetch-client`**.
+This guide demonstrates how to consume real-time Server-Sent Events (SSE) and AI LLM token streams, track upload and download progress, and upload binary files with **`react-native-fetch-client`**.
 
 ---
 
-## 🤖 1. AI LLM Token & SSE Streaming (`api.stream`)
+## 1. AI LLM Token and SSE Streaming (`api.stream`)
 
 Consuming streaming responses from AI providers (OpenAI, Anthropic, Gemini, Ollama) traditionally requires third-party event-source polyfills. `react-native-fetch-client` provides native async generator streaming via `api.stream`:
 
@@ -35,7 +35,7 @@ for await (const chunk of eventStream) {
     const parsed = JSON.parse(chunk.data);
     const token = parsed.choices[0]?.delta?.content ?? '';
     accumulatedText += token;
-    process.stdout.write(token); // Stream directly to UI or terminal
+    process.stdout.write(token);
   } catch {
     // Non-JSON SSE event
   }
@@ -43,7 +43,7 @@ for await (const chunk of eventStream) {
 ```
 
 ### Parsing SSE Chunks Manually (`parseSseStream`)
-If you have an existing `ReadableStream<Uint8Array>` (from any Fetch response or WebSocket bridge), convert it to SSE events using `parseSseStream`:
+To convert an existing `ReadableStream<Uint8Array>` (from any Fetch response or WebSocket bridge) to SSE events:
 
 ```typescript
 import { parseSseStream } from 'react-native-fetch-client';
@@ -58,9 +58,9 @@ for await (const event of eventStream) {
 
 ---
 
-## 📤 2. File Upload Helper (`api.upload`)
+## 2. File Upload Helper (`api.upload`)
 
-The `api.upload` method simplifies sending files, multipart forms, or binary buffers without worrying about manual boundary setting or header collisions:
+The `api.upload` method simplifies sending files, multipart forms, or binary buffers without manual boundary configuration:
 
 ```typescript
 import { createClient } from 'react-native-fetch-client';
@@ -88,7 +88,7 @@ formData.append('userId', '123');
 await api.upload('/users/avatar', formData);
 
 // 3. Uploading raw binary buffers & typed array views (Uint8Array, DataView, Subarrays)
-// Correctly respects byteOffset and byteLength without sending unneeded bytes
+// Respects byteOffset and byteLength without transmitting extraneous bytes
 const buffer = new Uint8Array([10, 20, 30, 40]);
 const slice = buffer.subarray(1, 3); // Uploads exactly [20, 30]
 await api.upload('/media/chunk', slice, { fileName: 'chunk.bin' });
@@ -96,9 +96,9 @@ await api.upload('/media/chunk', slice, { fileName: 'chunk.bin' });
 
 ---
 
-## 📊 3. Upload Progress Tracking (`onUploadProgress`)
+## 3. Upload Progress Tracking (`onUploadProgress`)
 
-Track real-time upload progress with loaded bytes, total bytes, and computed percentage using WHATWG byte streams:
+Track upload progress with loaded bytes, total bytes, and computed percentage using WHATWG byte streams:
 
 ```typescript
 import { type ProgressEvent } from 'react-native-fetch-client';
@@ -118,9 +118,9 @@ const res = await api.upload('/videos/upload', videoBlob, {
 
 ---
 
-## 📥 4. Download Progress Tracking (`onDownloadProgress`)
+## 4. Download Progress Tracking (`onDownloadProgress`)
 
-Monitor the progress of large asset, model, or document downloads:
+Monitor the download progress of assets, models, or documents:
 
 ```typescript
 const pdf = await api.get('/reports/annual-2026.pdf', {
@@ -137,9 +137,9 @@ console.log(`Downloaded file size: ${pdf.data.size} bytes`);
 
 ---
 
-## 🌊 5. Raw WHATWG Byte Streams (`responseType: 'stream'`)
+## 5. Raw WHATWG Byte Streams (`responseType: 'stream'`)
 
-For custom streaming processing (e.g. streaming audio decoding, parsing NDJSON lines, or saving to native disk via `react-native-fs` / `expo-file-system`):
+For streaming audio decoding, parsing NDJSON lines, or writing to disk:
 
 ```typescript
 const response = await api.get<ReadableStream<Uint8Array>>('/audio/podcast.mp3', {
@@ -151,8 +151,6 @@ const reader = response.data.getReader();
 while (true) {
   const { done, value } = await reader.read();
   if (done) break;
-  // value is a Uint8Array chunk
   console.log(`Received chunk of size ${value.length} bytes`);
 }
 ```
-

@@ -4,10 +4,11 @@
 
 We actively support and provide security patches for the following versions:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1.0 | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 0.2.x   | Yes       |
+| 0.1.x   | Yes       |
+| < 0.1.0 | No        |
 
 ## Reporting a Vulnerability
 
@@ -15,7 +16,7 @@ The `react-native-fetch-client` team takes supply chain and application security
 
 Instead, please report it securely through **GitHub Private Vulnerability Reporting**:
 
-👉 **[Submit a Private Security Advisory](https://github.com/arunkumarArjun/react-native-fetch-client/security/advisories/new)**
+**[Submit a Private Security Advisory](https://github.com/arunkumarArjun/react-native-fetch-client/security/advisories/new)**
 
 This keeps the report private, encrypted, and accessible only to the project maintainers until a fix is released.
 
@@ -51,9 +52,9 @@ When mobile applications undergo **Vulnerability Assessment and Penetration Test
 
 | Environment | Inspection Suppression Status | Threat Mitigation |
 | :--- | :--- | :--- |
-| **React Native (iOS & Android)** | ✅ **Full Stealth** | Drops events in `XHRInterceptor`. Invisible in Chrome Inspect, Hermes Debugger, and Flipper Network plugin. Prevents runtime API reconnaissance (OWASP M9). |
-| **Web (Browsers)** | ⚠️ **Console Stealth Only** | Requests **remain visible in the browser's C++ Network tab** due to W3C sandboxing rules. Suppresses `console.log`, debug traces, and telemetry error leaks (OWASP M1). |
-| **Node.js (SSR / Edge)** | ✅ **Full Stealth** | Suppresses Node inspector network events and console dumps. |
+| **React Native (iOS & Android)** | **Full Stealth** | Drops events in `XHRInterceptor`. Invisible in Chrome Inspect, Hermes Debugger, and Flipper Network plugin. Prevents runtime API reconnaissance (OWASP M9). |
+| **Web (Browsers)** | **Console Stealth Only** | Requests **remain visible in the browser's C++ Network tab** due to W3C sandboxing rules. Suppresses `console.log`, debug traces, and telemetry error leaks (OWASP M1). |
+| **Node.js (SSR / Edge)** | **Full Stealth** | Suppresses Node inspector network events and console dumps. |
 
 ### VAPT Audit Test Cases Addressed
 

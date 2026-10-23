@@ -4,7 +4,7 @@ This guide explains the dual-tier caching engine in **`react-native-fetch-client
 
 ---
 
-## ⚡ Overview of Caching Tiers
+## Overview of Caching Tiers
 
 ```mermaid
 graph TD

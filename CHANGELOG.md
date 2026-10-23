@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-23
+
+### Added
+
+- **Universal DevTools Stealth Mode (`hideFromDevTools`)**: Added a privacy and security filter across client and request levels to suppress sensitive endpoints (payment credentials, authentication handshakes, biometric tokens, PII) from developer inspection tools. In React Native, hooks `XHRInterceptor` for both request transmission and response delivery, preventing network inspection in Chrome Inspect (`chrome://inspect`), Hermes Debugger, and Flipper. Suppresses debug logs, console output, and telemetry error captures across all platforms.
+- **Async Webhook and Resource Waiter (`api.waitFor`)**: Added a specialized method for asynchronous event and job settlement (3DS payments, Apple Pay/UPI webhooks, KYC verification, cloud provisioning). Supports success predicates (`until`), immediate failure termination (`stopIf`), transient status code suppression (`ignoreErrors`, e.g. ignoring `404 Not Found` while background database writes occur), backoff ceiling caps (`maxInterval`), attempt limits (`maxAttempts`), and progress event callbacks (`onTick`).
+- **Error Types & Guards**: Exported `WaitForAbortedError` and `isWaitForAbortedError` type guard for handling terminal fast-abort responses.
+
+### Optimized & Refactored
+
+- **Engine Deduplication**: Refactored `api.poll()` to share the resilient loop and timer engine with `api.waitFor()`, eliminating over 140 lines of duplicate polling code and reducing raw bundle size by over 4 KB without changing public API signatures or runtime behavior.
+- **Complete DevTools Response Suppression**: Fixed an oversight in React Native devtools suppression where `setResponseCallback` was not hooked alongside `setSendCallback`, ensuring incoming response data is completely suppressed for protected endpoints.
+- **Documentation Overhaul**: Modernized all documentation guides and references to a clean, authoritative technical style without emojis, adding complete configuration reference tables and platform behavior matrices.
+
 ## [0.1.7] - 2026-10-20
 
 ### Fixed & Tested

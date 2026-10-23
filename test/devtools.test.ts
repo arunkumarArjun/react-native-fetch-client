@@ -205,4 +205,41 @@ describe('React Native XHRInterceptor Suppression Simulation', () => {
     // After withDevToolsSuppression finishes, original callback is restored
     expect(mockInterceptor.setSendCallback).toHaveBeenCalledWith(originalCallback);
   });
+
+  it('mutes response callback for matching hidden URL and restores original after execution', async () => {
+    const originalResponseCallback = vi.fn();
+    mockInterceptor._responseCallback = originalResponseCallback;
+
+    const url = 'https://api.test/secure-payment';
+    let responseCallbackDuringExecution: MockResponseCallback | undefined;
+
+    await withDevToolsSuppression(url, true, async () => {
+      responseCallbackDuringExecution = mockInterceptor._responseCallback;
+
+      // Simulate DevTools trying to record response of the hidden request
+      if (responseCallbackDuringExecution) {
+        responseCallbackDuringExecution(200, 0, { token: 'secret' }, url);
+      }
+
+      // The original response callback should NOT have been invoked because URL matched!
+      expect(originalResponseCallback).not.toHaveBeenCalled();
+
+      // Simulate a non-hidden response passing through
+      if (responseCallbackDuringExecution) {
+        responseCallbackDuringExecution(200, 0, { data: 'public' }, 'https://api.test/public');
+      }
+      expect(originalResponseCallback).toHaveBeenCalledWith(
+        200,
+        0,
+        { data: 'public' },
+        'https://api.test/public',
+      );
+
+      await Promise.resolve();
+      return 'success';
+    });
+
+    // After withDevToolsSuppression finishes, original response callback is restored
+    expect(mockInterceptor.setResponseCallback).toHaveBeenCalledWith(originalResponseCallback);
+  });
 });

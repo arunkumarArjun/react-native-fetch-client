@@ -142,14 +142,29 @@ export async function withDevToolsSuppression<T>(
         originalSendCallback = interceptor._sendCallback;
         originalResponseCallback = interceptor._responseCallback;
 
-        interceptor.setSendCallback((data: unknown, xhr: ReactNativeXHR) => {
-          if (xhr._url && activeSuppressedUrls.has(xhr._url)) {
-            return;
-          }
-          if (typeof originalSendCallback === 'function') {
-            originalSendCallback(data, xhr);
-          }
-        });
+        if (typeof interceptor.setSendCallback === 'function') {
+          interceptor.setSendCallback((data: unknown, xhr: ReactNativeXHR) => {
+            if (xhr._url && activeSuppressedUrls.has(xhr._url)) {
+              return;
+            }
+            if (typeof originalSendCallback === 'function') {
+              originalSendCallback(data, xhr);
+            }
+          });
+        }
+
+        if (typeof interceptor.setResponseCallback === 'function') {
+          interceptor.setResponseCallback(
+            (status: number, timeout: number, response: unknown, resUrl?: string) => {
+              if (resUrl && activeSuppressedUrls.has(resUrl)) {
+                return;
+              }
+              if (typeof originalResponseCallback === 'function') {
+                originalResponseCallback(status, timeout, response, resUrl);
+              }
+            },
+          );
+        }
 
         isHooked = true;
       }

@@ -350,6 +350,201 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     return request<T>(mergedConfig);
   };
 
+  const waitFor = async <T = unknown>(
+    url: string,
+    options: WaitForOptions<T>,
+  ): Promise<HttpResponse<T>> => {
+    const interval = Math.max(50, options.interval ?? 1000);
+    const timeout = options.timeout !== undefined ? Math.max(0, options.timeout) : 30000;
+    const backoff = Math.max(1, options.backoff ?? 1);
+    const maxInterval =
+      options.maxInterval !== undefined ? Math.max(interval, options.maxInterval) : 10000;
+    const maxAttempts =
+      options.maxAttempts !== undefined && options.maxAttempts > 0 ? options.maxAttempts : Infinity;
+    const ignoreErrors = options.ignoreErrors ?? [404];
+    const startTime = Date.now();
+    let currentInterval = interval;
+    let attempt = 0;
+
+    if (options.signal?.aborted) {
+      const reason: unknown = options.signal.reason;
+      if (reason instanceof CancelError) throw reason;
+      throw new CancelError({ cause: reason });
+    }
+
+    const createTimeoutError = () =>
+      new TimeoutError(timeout, {
+        config: {
+          url,
+          method: options.method ?? 'GET',
+          headers: {},
+          timeout,
+          responseType: options.responseType ?? 'json',
+          retry: {
+            attempts: 0,
+            backoff: 'exponential',
+            delay: 0,
+            maxDelay: 0,
+            jitter: false,
+            retryOn: [],
+            safeMethods: [],
+            respectRetryAfter: false,
+          },
+        },
+      });
+
+    const overallController = new AbortController();
+    let overallTimerId: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    let callerAborted = false;
+
+    if (timeout > 0) {
+      overallTimerId = setTimeout(() => {
+        timedOut = true;
+        overallController.abort(createTimeoutError());
+      }, timeout);
+    }
+
+    const onCallerAbort = () => {
+      callerAborted = true;
+      overallController.abort(options.signal?.reason);
+    };
+
+    if (options.signal) {
+      options.signal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+
+    const cleanup = () => {
+      if (overallTimerId !== undefined) {
+        clearTimeout(overallTimerId);
+        overallTimerId = undefined;
+      }
+      if (options.signal && onCallerAbort) {
+        options.signal.removeEventListener('abort', onCallerAbort);
+      }
+    };
+
+    try {
+      while (true) {
+        if (callerAborted || options.signal?.aborted) {
+          const reason: unknown = options.signal?.reason;
+          if (reason instanceof CancelError) throw reason;
+          throw new CancelError({ cause: reason });
+        }
+
+        if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+          throw createTimeoutError();
+        }
+
+        if (attempt >= maxAttempts) {
+          throw createTimeoutError();
+        }
+
+        attempt += 1;
+        let res: HttpResponse<T> | undefined;
+
+        try {
+          res = await request<T>({
+            ...options,
+            url,
+            method: options.method ?? 'GET',
+            signal: overallController.signal,
+          });
+        } catch (err: unknown) {
+          if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+            throw createTimeoutError();
+          }
+          if (callerAborted || options.signal?.aborted) {
+            const reason: unknown = options.signal?.reason;
+            if (reason instanceof CancelError) throw reason;
+            throw new CancelError({ cause: reason ?? err });
+          }
+          if (err instanceof TimeoutError && timedOut) {
+            throw createTimeoutError();
+          }
+
+          const shouldIgnore =
+            ignoreErrors === true ||
+            (Array.isArray(ignoreErrors) &&
+              err instanceof HttpError &&
+              ignoreErrors.includes(err.status));
+
+          if (!shouldIgnore) {
+            throw err;
+          }
+        }
+
+        const elapsed = Date.now() - startTime;
+        if (options.onTick) {
+          try {
+            options.onTick({ attempt, elapsedMs: elapsed, response: res });
+          } catch {
+            // Safeguard against user tick listener throwing
+          }
+        }
+
+        if (res) {
+          if (options.stopIf) {
+            const stopped = await options.stopIf(res);
+            if (stopped) {
+              throw new WaitForAbortedError(res);
+            }
+          }
+
+          const matched = await options.until(res);
+          if (matched) {
+            return res;
+          }
+        }
+
+        if (timeout > 0 && elapsed >= timeout) {
+          throw createTimeoutError();
+        }
+
+        if (attempt >= maxAttempts) {
+          throw createTimeoutError();
+        }
+
+        const remaining = timeout > 0 ? timeout - elapsed : Infinity;
+        const waitMs = Math.min(currentInterval, remaining);
+        if (waitMs <= 0) {
+          throw createTimeoutError();
+        }
+
+        try {
+          await abortableSleep(waitMs, overallController.signal);
+        } catch (sleepErr: unknown) {
+          if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
+            throw createTimeoutError();
+          }
+          if (callerAborted || options.signal?.aborted) {
+            const reason: unknown = options.signal?.reason;
+            if (reason instanceof CancelError) throw reason;
+            throw new CancelError({ cause: reason ?? sleepErr });
+          }
+          throw sleepErr;
+        }
+
+        currentInterval = Math.min(maxInterval, Math.round(currentInterval * backoff));
+      }
+    } catch (err: unknown) {
+      if (
+        timedOut ||
+        (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))
+      ) {
+        throw createTimeoutError();
+      }
+      if (callerAborted || options.signal?.aborted) {
+        const reason: unknown = options.signal?.reason;
+        if (reason instanceof CancelError) throw reason;
+        throw new CancelError({ cause: reason ?? err });
+      }
+      throw err;
+    } finally {
+      cleanup();
+    }
+  };
+
   const client: HttpClient = {
     request,
     get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
@@ -388,351 +583,13 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     safe,
     stream,
     upload,
-    poll: async <T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>> => {
-      const interval = Math.max(50, options.interval ?? 1000);
-      const timeout = options.timeout !== undefined ? Math.max(0, options.timeout) : 30000;
-      const backoff = Math.max(1, options.backoff ?? 1);
-      const startTime = Date.now();
-      let currentInterval = interval;
-
-      if (options.signal?.aborted) {
-        const reason: unknown = options.signal.reason;
-        if (reason instanceof CancelError) throw reason;
-        throw new CancelError({ cause: reason });
-      }
-
-      const createTimeoutError = () =>
-        new TimeoutError(timeout, {
-          config: {
-            url,
-            method: options.method ?? 'GET',
-            headers: {},
-            timeout,
-            responseType: options.responseType ?? 'json',
-            retry: {
-              attempts: 0,
-              backoff: 'exponential',
-              delay: 0,
-              maxDelay: 0,
-              jitter: false,
-              retryOn: [],
-              safeMethods: [],
-              respectRetryAfter: false,
-            },
-          },
-        });
-
-      const overallController = new AbortController();
-      let overallTimerId: ReturnType<typeof setTimeout> | undefined;
-      let timedOut = false;
-      let callerAborted = false;
-
-      if (timeout > 0) {
-        overallTimerId = setTimeout(() => {
-          timedOut = true;
-          overallController.abort(createTimeoutError());
-        }, timeout);
-      }
-
-      const onCallerAbort = () => {
-        callerAborted = true;
-        overallController.abort(options.signal?.reason);
-      };
-
-      if (options.signal) {
-        options.signal.addEventListener('abort', onCallerAbort, { once: true });
-      }
-
-      const cleanup = () => {
-        if (overallTimerId !== undefined) {
-          clearTimeout(overallTimerId);
-          overallTimerId = undefined;
-        }
-        if (options.signal && onCallerAbort) {
-          options.signal.removeEventListener('abort', onCallerAbort);
-        }
-      };
-
-      try {
-        while (true) {
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason });
-          }
-
-          if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-            throw createTimeoutError();
-          }
-
-          let res: HttpResponse<T>;
-          try {
-            res = await request<T>({
-              ...options,
-              url,
-              method: options.method ?? 'GET',
-              signal: overallController.signal,
-            });
-          } catch (err: unknown) {
-            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-              throw createTimeoutError();
-            }
-            if (callerAborted || options.signal?.aborted) {
-              const reason: unknown = options.signal?.reason;
-              if (reason instanceof CancelError) throw reason;
-              throw new CancelError({ cause: reason ?? err });
-            }
-            if (err instanceof TimeoutError && timedOut) {
-              throw createTimeoutError();
-            }
-            throw err;
-          }
-
-          const matched = await options.until(res);
-          if (matched) {
-            return res;
-          }
-
-          const elapsed = Date.now() - startTime;
-          if (timeout > 0 && elapsed >= timeout) {
-            throw createTimeoutError();
-          }
-
-          const remaining = timeout > 0 ? timeout - elapsed : Infinity;
-          const waitMs = Math.min(currentInterval, remaining);
-          if (waitMs <= 0) {
-            throw createTimeoutError();
-          }
-
-          try {
-            await abortableSleep(waitMs, overallController.signal);
-          } catch (sleepErr: unknown) {
-            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-              throw createTimeoutError();
-            }
-            if (callerAborted || options.signal?.aborted) {
-              const reason: unknown = options.signal?.reason;
-              if (reason instanceof CancelError) throw reason;
-              throw new CancelError({ cause: reason ?? sleepErr });
-            }
-            throw sleepErr;
-          }
-
-          currentInterval = Math.round(currentInterval * backoff);
-        }
-      } catch (err: unknown) {
-        if (
-          timedOut ||
-          (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))
-        ) {
-          throw createTimeoutError();
-        }
-        if (callerAborted || options.signal?.aborted) {
-          const reason: unknown = options.signal?.reason;
-          if (reason instanceof CancelError) throw reason;
-          throw new CancelError({ cause: reason ?? err });
-        }
-        throw err;
-      } finally {
-        cleanup();
-      }
-    },
-    waitFor: async <T = unknown>(
-      url: string,
-      options: WaitForOptions<T>,
-    ): Promise<HttpResponse<T>> => {
-      const interval = Math.max(50, options.interval ?? 1000);
-      const timeout = options.timeout !== undefined ? Math.max(0, options.timeout) : 30000;
-      const backoff = Math.max(1, options.backoff ?? 1);
-      const maxInterval =
-        options.maxInterval !== undefined ? Math.max(interval, options.maxInterval) : 10000;
-      const maxAttempts =
-        options.maxAttempts !== undefined && options.maxAttempts > 0
-          ? options.maxAttempts
-          : Infinity;
-      const ignoreErrors = options.ignoreErrors ?? [404];
-      const startTime = Date.now();
-      let currentInterval = interval;
-      let attempt = 0;
-
-      if (options.signal?.aborted) {
-        const reason: unknown = options.signal.reason;
-        if (reason instanceof CancelError) throw reason;
-        throw new CancelError({ cause: reason });
-      }
-
-      const createTimeoutError = () =>
-        new TimeoutError(timeout, {
-          config: {
-            url,
-            method: options.method ?? 'GET',
-            headers: {},
-            timeout,
-            responseType: options.responseType ?? 'json',
-            retry: {
-              attempts: 0,
-              backoff: 'exponential',
-              delay: 0,
-              maxDelay: 0,
-              jitter: false,
-              retryOn: [],
-              safeMethods: [],
-              respectRetryAfter: false,
-            },
-          },
-        });
-
-      const overallController = new AbortController();
-      let overallTimerId: ReturnType<typeof setTimeout> | undefined;
-      let timedOut = false;
-      let callerAborted = false;
-
-      if (timeout > 0) {
-        overallTimerId = setTimeout(() => {
-          timedOut = true;
-          overallController.abort(createTimeoutError());
-        }, timeout);
-      }
-
-      const onCallerAbort = () => {
-        callerAborted = true;
-        overallController.abort(options.signal?.reason);
-      };
-
-      if (options.signal) {
-        options.signal.addEventListener('abort', onCallerAbort, { once: true });
-      }
-
-      const cleanup = () => {
-        if (overallTimerId !== undefined) {
-          clearTimeout(overallTimerId);
-          overallTimerId = undefined;
-        }
-        if (options.signal && onCallerAbort) {
-          options.signal.removeEventListener('abort', onCallerAbort);
-        }
-      };
-
-      try {
-        while (true) {
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason });
-          }
-
-          if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-            throw createTimeoutError();
-          }
-
-          if (attempt >= maxAttempts) {
-            throw createTimeoutError();
-          }
-
-          attempt += 1;
-          let res: HttpResponse<T> | undefined;
-
-          try {
-            res = await request<T>({
-              ...options,
-              url,
-              method: options.method ?? 'GET',
-              signal: overallController.signal,
-            });
-          } catch (err: unknown) {
-            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-              throw createTimeoutError();
-            }
-            if (callerAborted || options.signal?.aborted) {
-              const reason: unknown = options.signal?.reason;
-              if (reason instanceof CancelError) throw reason;
-              throw new CancelError({ cause: reason ?? err });
-            }
-            if (err instanceof TimeoutError && timedOut) {
-              throw createTimeoutError();
-            }
-
-            const shouldIgnore =
-              ignoreErrors === true ||
-              (Array.isArray(ignoreErrors) &&
-                err instanceof HttpError &&
-                ignoreErrors.includes(err.status));
-
-            if (!shouldIgnore) {
-              throw err;
-            }
-          }
-
-          const elapsed = Date.now() - startTime;
-          if (options.onTick) {
-            try {
-              options.onTick({ attempt, elapsedMs: elapsed, response: res });
-            } catch {
-              // Safeguard against user tick listener throwing
-            }
-          }
-
-          if (res) {
-            if (options.stopIf) {
-              const stopped = await options.stopIf(res);
-              if (stopped) {
-                throw new WaitForAbortedError(res);
-              }
-            }
-
-            const matched = await options.until(res);
-            if (matched) {
-              return res;
-            }
-          }
-
-          if (timeout > 0 && elapsed >= timeout) {
-            throw createTimeoutError();
-          }
-
-          if (attempt >= maxAttempts) {
-            throw createTimeoutError();
-          }
-
-          const remaining = timeout > 0 ? timeout - elapsed : Infinity;
-          const waitMs = Math.min(currentInterval, remaining);
-          if (waitMs <= 0) {
-            throw createTimeoutError();
-          }
-
-          try {
-            await abortableSleep(waitMs, overallController.signal);
-          } catch (sleepErr: unknown) {
-            if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
-              throw createTimeoutError();
-            }
-            if (callerAborted || options.signal?.aborted) {
-              const reason: unknown = options.signal?.reason;
-              if (reason instanceof CancelError) throw reason;
-              throw new CancelError({ cause: reason ?? sleepErr });
-            }
-            throw sleepErr;
-          }
-
-          currentInterval = Math.min(maxInterval, Math.round(currentInterval * backoff));
-        }
-      } catch (err: unknown) {
-        if (
-          timedOut ||
-          (timeout > 0 && Date.now() - startTime >= timeout && !(err instanceof CancelError))
-        ) {
-          throw createTimeoutError();
-        }
-        if (callerAborted || options.signal?.aborted) {
-          const reason: unknown = options.signal?.reason;
-          if (reason instanceof CancelError) throw reason;
-          throw new CancelError({ cause: reason ?? err });
-        }
-        throw err;
-      } finally {
-        cleanup();
-      }
-    },
+    poll: <T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>> =>
+      waitFor<T>(url, {
+        ...options,
+        ignoreErrors: [],
+        maxInterval: Infinity,
+      }),
+    waitFor,
     paginate: null as unknown as PaginateHelper,
     cache: cacheManager,
     interceptors: {

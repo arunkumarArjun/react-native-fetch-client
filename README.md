@@ -45,6 +45,7 @@ For in-depth explanations, execution pipeline flows, and implementation guides, 
 - [Standard Schema Validation (`schema`)](#standard-schema-validation-schema)
 - [Auto-Pagination Helper (`api.paginate`)](#auto-pagination-helper-apipaginate)
 - [Smart Polling Helper (`api.poll`)](#smart-polling-helper-apipoll)
+- [Intelligent Webhook & Async Waiter (`api.waitFor`)](#-intelligent-webhook--async-waiter-apiwaitfor)
 - [Native AI & SSE Streaming (`api.stream`)](#native-ai--sse-streaming-apistream)
 - [Search Autocomplete Auto-Cancel (`cancelPrevious`)](#search-autocomplete-auto-cancel-cancelprevious)
 - [Declarative Testing Mock Adapter (`createMockAdapter`)](#declarative-testing-mock-adapter-createmockadapter)
@@ -326,6 +327,57 @@ const payment = await api.poll<PaymentStatus>('/orders/123/status', {
 
 console.log('Payment finalized:', payment.data.transactionId);
 ```
+
+---
+
+## ⚡ Intelligent Webhook & Async Waiter (`api.waitFor`)
+
+Purpose-built for waiting on asynchronous events like **payment webhooks (Stripe 3DS, Apple Pay, UPI)**, **KYC verification**, and **long-running AI background tasks**:
+
+```typescript
+import { createClient, isWaitForAbortedError } from 'react-native-fetch-client';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+
+try {
+  // Mobile UI waits for backend webhook worker to update order status:
+  const order = await api.waitFor<Order>('/orders/123/status', {
+    // 1. Success condition:
+    until: (res) => res.data.status === 'succeeded',
+
+    // 2. Fast-abort failure condition (avoids useless polling on rejection):
+    stopIf: (res) => res.data.status === 'failed',
+
+    // 3. Tolerates initial 404s before the webhook worker writes the record:
+    ignoreErrors: [404],
+
+    // 4. Backoff with a maximum interval cap:
+    interval: 1000,
+    backoff: 1.5,
+    maxInterval: 4000, // Capped at 4 seconds
+    timeout: 45000,    // 45s max total timeout
+
+    // 5. Live UI progress callback for spinners:
+    onTick: ({ attempt, elapsedMs }) => {
+      console.log(`Checking payment status (attempt ${attempt}, ${Math.round(elapsedMs / 1000)}s)...`);
+    },
+
+    // 6. WHATWG AbortSignal to cancel if user navigates away:
+    signal: navigationAbortController.signal,
+  });
+
+  console.log('Order verified:', order.data.receiptUrl);
+} catch (err) {
+  if (isWaitForAbortedError(err)) {
+    console.error('Payment rejected immediately:', err.response.data);
+  }
+}
+```
+
+- **Early Failure Exit (`stopIf`)**: Instantly aborts and throws `WaitForAbortedError` with the failure response without waiting for a timeout.
+- **404 Worker Resilience (`ignoreErrors`)**: Tolerates transient `404 Not Found` responses before an async database write occurs.
+- **Backoff Interval Capping (`maxInterval`)**: Prevents exponential backoff from ballooning into long delays.
+- **Zero Memory Leaks**: WHATWG `AbortSignal` closes underlying sockets immediately when components unmount.
 
 ---
 

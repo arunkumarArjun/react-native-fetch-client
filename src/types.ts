@@ -894,7 +894,8 @@ export type ErrorCode =
   | 'CONFIG_ERROR' // invalid configuration detected at request time
   | 'RETRY_EXHAUSTED' // all retry attempts were consumed
   | 'VALIDATION_ERROR' // response body failed schema validation
-  | 'CIRCUIT_OPEN'; // circuit breaker is OPEN, blocking the request
+  | 'CIRCUIT_OPEN' // circuit breaker is OPEN, blocking the request
+  | 'WAIT_FOR_ABORTED'; // api.waitFor() was aborted by stopIf condition
 
 // ---------------------------------------------------------------------------
 // Safe Client Interface
@@ -1187,6 +1188,11 @@ export interface HttpClient {
    * Polls an endpoint repeatedly until a condition is met or timeout expires.
    */
   poll<T = unknown>(url: string, options: PollOptions<T>): Promise<HttpResponse<T>>;
+  /**
+   * Intelligently waits for an asynchronous job, webhook settlement, or state transition to complete.
+   * Supports early abort via stopIf, transient 404 tolerance, interval capping, and live progress ticks.
+   */
+  waitFor<T = unknown>(url: string, options: WaitForOptions<T>): Promise<HttpResponse<T>>;
 }
 
 /**
@@ -1201,6 +1207,30 @@ export interface PollOptions<T = unknown> extends RequestConfig {
   until: (response: HttpResponse<T>) => boolean | Promise<boolean>;
   /** Optional backoff multiplier for interval growth (e.g. 1.5). Default: 1 (fixed interval). */
   backoff?: number;
+}
+
+/**
+ * Configuration options for `api.waitFor()`.
+ */
+export interface WaitForOptions<T = unknown> extends RequestConfig {
+  /** Predicate returning true when the desired condition has succeeded. */
+  until: (response: HttpResponse<T>) => boolean | Promise<boolean>;
+  /** Optional fast-abort predicate. If true, terminates immediately throwing a WaitForAbortedError. */
+  stopIf?: (response: HttpResponse<T>) => boolean | Promise<boolean>;
+  /** Initial polling interval in milliseconds between checks. Default: 1000. */
+  interval?: number;
+  /** Optional backoff multiplier for interval growth (e.g. 1.5). Default: 1 (fixed interval). */
+  backoff?: number;
+  /** Maximum interval cap in milliseconds when using backoff. Default: 10000. */
+  maxInterval?: number;
+  /** Maximum total time to wait in milliseconds before throwing TimeoutError. Default: 30000. */
+  timeout?: number;
+  /** Maximum number of attempts before throwing TimeoutError. Optional. */
+  maxAttempts?: number;
+  /** HTTP status codes to ignore and continue waiting (e.g. [404]). Set true to ignore all HttpErrors. Default: [404]. */
+  ignoreErrors?: number[] | boolean;
+  /** Progress callback fired after each completed attempt. */
+  onTick?: (state: { attempt: number; elapsedMs: number; response?: HttpResponse<T> | undefined }) => void;
 }
 
 /**

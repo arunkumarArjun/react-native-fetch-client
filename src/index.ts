@@ -57,6 +57,7 @@ export type {
   MockReplyCallback,
   MockHistoryItem,
   PollOptions,
+  WaitForOptions,
   DevToolsPrivacyFilter,
 } from './types.js';
 
@@ -72,6 +73,7 @@ export {
   RetryExhaustedError,
   ValidationError,
   CircuitBreakerError,
+  WaitForAbortedError,
   isFetchNativeError,
   isHttpError,
   isNetworkError,
@@ -80,6 +82,7 @@ export {
   isRetryExhaustedError,
   isValidationError,
   isCircuitBreakerError,
+  isWaitForAbortedError,
 } from './errors.js';
 
 import { createClient } from './client.js';

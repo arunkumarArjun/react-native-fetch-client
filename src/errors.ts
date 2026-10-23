@@ -7,7 +7,7 @@
  * Use the `.code` property or `instanceof` to distinguish error types.
  */
 
-import type { ErrorCode, ResolvedRequestConfig } from './types.js';
+import type { ErrorCode, HttpResponse, ResolvedRequestConfig } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Helper: build options object without explicit undefined values
@@ -352,4 +352,28 @@ export function isValidationError(err: unknown): err is ValidationError {
 /** Returns true if `err` is a CircuitBreakerError. */
 export function isCircuitBreakerError(err: unknown): err is CircuitBreakerError {
   return err instanceof CircuitBreakerError;
+}
+
+/**
+ * Thrown when `api.waitFor()` is terminated early because the `stopIf` predicate returned true.
+ * Contains the terminal `HttpResponse` that triggered the abort.
+ */
+export class WaitForAbortedError<T = unknown> extends FetchNativeError {
+  /** The terminal response that matched the stopIf condition. */
+  readonly response: HttpResponse<T>;
+
+  constructor(
+    response: HttpResponse<T>,
+    message = 'Waiting was aborted because the stopIf condition was met',
+    options?: { config?: ResolvedRequestConfig; cause?: unknown },
+  ) {
+    super(message, 'WAIT_FOR_ABORTED', options ? buildOptions(options) : undefined);
+    this.name = 'WaitForAbortedError';
+    this.response = response;
+  }
+}
+
+/** Returns true if `err` is a WaitForAbortedError. */
+export function isWaitForAbortedError(err: unknown): err is WaitForAbortedError {
+  return err instanceof WaitForAbortedError;
 }

@@ -6,7 +6,6 @@ import {
   isAuthRefreshError,
   createOfflineQueue,
   MemoryStorageAdapter,
-  withDevToolsSuppression,
 } from '../src/index.js';
 
 describe('Audit Fixes & Correctness Regressions (15 issues verification)', () => {
@@ -128,33 +127,6 @@ describe('Audit Fixes & Correctness Regressions (15 issues verification)', () =>
     });
   });
 
-  // 3. DevTools suppression reference counting
-  describe('Issue 3: DevTools Suppression Concurrency', () => {
-    it('safely reference-counts active suppressed URLs across concurrent executions', async () => {
-      const url = 'https://api.example.com/secret/token';
-
-      let call1Finished = false;
-      let call2Finished = false;
-
-      const p1 = withDevToolsSuppression(url, true, async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        call1Finished = true;
-        return 'res1';
-      });
-
-      const p2 = withDevToolsSuppression(url, true, async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        call2Finished = true;
-        return 'res2';
-      });
-
-      const [r1, r2] = await Promise.all([p1, p2]);
-      expect(r1).toBe('res1');
-      expect(r2).toBe('res2');
-      expect(call1Finished).toBe(true);
-      expect(call2Finished).toBe(true);
-    });
-  });
 
   // 4. Cache key Authorization hashing
   describe('Issue 4: Authorization Header Hashing in Cache Keys', () => {

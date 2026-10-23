@@ -20,7 +20,6 @@ import { generateDedupKey, isDedupEligible, type DedupManager } from './dedup.js
 import { generateCacheKey, isCacheEligible, type CacheManager } from './cache.js';
 import { validateData } from './validator.js';
 import { CircuitBreaker } from './circuit-breaker.js';
-import { isDevToolsHidden, withDevToolsSuppression } from './devtools.js';
 import type { ConcurrencyLimiter } from './concurrency.js';
 import type { AuthManager } from './auth.js';
 import type {
@@ -487,10 +486,6 @@ async function executeRequestInternal<T = unknown>(
     resolvedConfig.headers['authorization'] = '[REDACTED]';
   }
 
-  const hideOpt = config.hideFromDevTools ?? clientConfig.hideFromDevTools;
-  const isHidden = isDevToolsHidden(resolvedUrl, hideOpt);
-  resolvedConfig.hideFromDevTools = isHidden;
-
   let totalTimerId: ReturnType<typeof setTimeout> | undefined;
   let onCallerAbort: (() => void) | undefined;
   const totalController = new AbortController();
@@ -565,7 +560,7 @@ async function executeRequestInternal<T = unknown>(
   const debugOpt = config.debug ?? clientConfig.debug;
 
   const logSuccess = (res: HttpResponse<T>) => {
-    if (isHidden || !debugOpt) return;
+    if (!debugOpt) return;
     const durationMs = Date.now() - startTime;
     const entry: DebugLogEntry = {
       method,
@@ -587,7 +582,7 @@ async function executeRequestInternal<T = unknown>(
   };
 
   const logError = (err: unknown) => {
-    if (isHidden || !debugOpt) return;
+    if (!debugOpt) return;
     const durationMs = Date.now() - startTime;
     const entry: DebugLogEntry = {
       method,
@@ -610,8 +605,7 @@ async function executeRequestInternal<T = unknown>(
   let lastError: unknown;
 
   try {
-    return await withDevToolsSuppression(resolvedUrl, isHidden, async () => {
-      while (true) {
+    while (true) {
         attempt++;
         try {
           let response = await dispatchFetch<T>(
@@ -753,7 +747,6 @@ async function executeRequestInternal<T = unknown>(
           throw lastError;
         }
       }
-    });
   } catch (err: unknown) {
     cleanup();
 

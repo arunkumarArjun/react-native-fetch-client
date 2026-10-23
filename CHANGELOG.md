@@ -9,14 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Universal DevTools Stealth Mode (`hideFromDevTools`)**: Added a privacy and security filter across client and request levels to suppress sensitive endpoints (payment credentials, authentication handshakes, biometric tokens, PII) from developer inspection tools. In React Native, hooks `XHRInterceptor` for both request transmission and response delivery, preventing network inspection in Chrome Inspect (`chrome://inspect`), Hermes Debugger, and Flipper. Suppresses debug logs, console output, and telemetry error captures across all platforms.
 - **Async Webhook and Resource Waiter (`api.waitFor`)**: Added a specialized method for asynchronous event and job settlement (3DS payments, Apple Pay/UPI webhooks, KYC verification, cloud provisioning). Supports success predicates (`until`), immediate failure termination (`stopIf`), transient status code suppression (`ignoreErrors`, e.g. ignoring `404 Not Found` while background database writes occur), backoff ceiling caps (`maxInterval`), attempt limits (`maxAttempts`), and progress event callbacks (`onTick`).
 - **Error Types & Guards**: Exported `WaitForAbortedError` and `isWaitForAbortedError` type guard for handling terminal fast-abort responses.
 
 ### Optimized & Refactored
 
 - **Engine Deduplication**: Refactored `api.poll()` to share the resilient loop and timer engine with `api.waitFor()`, eliminating over 140 lines of duplicate polling code and reducing raw bundle size by over 4 KB without changing public API signatures or runtime behavior.
-- **Complete DevTools Response Suppression**: Fixed an oversight in React Native devtools suppression where `setResponseCallback` was not hooked alongside `setSendCallback`, ensuring incoming response data is completely suppressed for protected endpoints.
 - **Documentation Overhaul**: Modernized all documentation guides and references to a clean, authoritative technical style without emojis, adding complete configuration reference tables and platform behavior matrices.
 
 ### Fixed & Security
@@ -24,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security - Auth Header Token Hashing in Cache Keys**: Pre-emptively hashes `Authorization` tokens to opaque deterministic hex digests before cache key composition, eliminating credential leaks in persistent cache storage and debug logs.
 - **Cross-Domain Cache & Deduplication Isolation**: Preserves URL origins on absolute paths to avoid cross-domain key collisions, paired with path-exact cache eviction on mutations (`deleteExactPath`).
 - **Cross-Engine `createAbortError`**: Added safe fallback for runtimes where the global `DOMException` is absent (such as older React Native JSC or Hermes engines).
-- **DevTools Concurrent Hook Reference-Counting**: Replaced singleton suppression hook state with reference-counted listeners to prevent callback leaks and race conditions under concurrent requests.
 - **Binary `ArrayBufferView` Preservation**: Fixed body serialization so native `Uint8Array`, `Buffer`, and `DataView` are preserved as binary payloads rather than JSON-stringified.
 - **SSE Stream Abort Termination**: Background stream readers are aborted immediately when `options.signal` triggers.
 - **Offline Queue Path Parameter Interpolation**: Restores dynamic `pathParams` when offline requests are replayed.

@@ -427,17 +427,6 @@ export interface RequestConfig {
    * Callback fired when background revalidation fails in 'stale-while-revalidate' mode.
    */
   onRevalidationError?: (error: unknown) => void;
-  /**
-   * Universal DevTools Stealth Mode:
-   * Suppresses or masks sensitive requests, headers, and responses from developer tools
-   * across Mobile (chrome://inspect, Flipper), Web browsers, and Node.js inspector.
-   *
-   * - `true`: Mutes/masks all requests from developer tools.
-   * - `string[] | RegExp[]`: Mutes/masks only matching URL endpoints (e.g. `['/auth', '/payment']`).
-   *
-   * @default false
-   */
-  hideFromDevTools?: DevToolsPrivacyFilter;
 }
 
 /**
@@ -454,12 +443,6 @@ export interface InternalRequestConfig extends RequestConfig {
   /** Internal tracking flag indicating whether this request is a background SWR revalidation. */
   _isRevalidating?: boolean;
 }
-
-/**
- * Filter configuration for Universal DevTools Stealth Mode.
- * Accepts a boolean (to toggle for all requests) or an array of URL substrings and RegExps.
- */
-export type DevToolsPrivacyFilter = boolean | (string | RegExp)[];
 
 // ---------------------------------------------------------------------------
 // Client configuration
@@ -531,11 +514,6 @@ export interface ClientConfig extends Omit<
    * Default unwrapping behavior. When true, returns `response.data` directly.
    */
   unwrap?: boolean;
-  /**
-   * Universal DevTools Stealth Mode default:
-   * Suppresses or masks requests from developer tools across Mobile, Web, and Node.js.
-   */
-  hideFromDevTools?: DevToolsPrivacyFilter;
 }
 
 // ---------------------------------------------------------------------------
@@ -557,8 +535,6 @@ export interface ResolvedRequestConfig {
   responseType: ResponseType;
   credentials?: RequestCredentials;
   retry: ResolvedRetryPolicy;
-  /** Whether developer tools telemetry was suppressed for this request. */
-  hideFromDevTools?: boolean;
 }
 
 // ---------------------------------------------------------------------------

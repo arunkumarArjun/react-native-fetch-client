@@ -14,7 +14,12 @@ interface ReactNativeXHR {
 }
 
 type XHRSendCallback = (data: unknown, xhr: ReactNativeXHR) => void;
-type XHRResponseCallback = (status: number, timeout: number, response: unknown, url?: string) => void;
+type XHRResponseCallback = (
+  status: number,
+  timeout: number,
+  response: unknown,
+  url?: string,
+) => void;
 
 interface ReactNativeXHRInterceptor {
   isInterceptorEnabled?: () => boolean;
@@ -81,7 +86,8 @@ function getReactNativeXHRInterceptor(): ReactNativeXHRInterceptor | null {
     return g.__REACT_NATIVE_XHR_INTERCEPTOR__;
   }
 
-  const nav = typeof navigator !== 'undefined' ? (navigator as unknown as { product?: string }) : undefined;
+  const nav =
+    typeof navigator !== 'undefined' ? (navigator as unknown as { product?: string }) : undefined;
   const isRN = Boolean(nav?.product === 'ReactNative' || g.nativeCallSyncHook);
 
   if (!isRN) {
@@ -91,7 +97,8 @@ function getReactNativeXHRInterceptor(): ReactNativeXHRInterceptor | null {
   try {
     const req = typeof g.require === 'function' ? g.require : null;
     if (req) {
-      const interceptor = req('react-native/Libraries/Network/XHRInterceptor') as ReactNativeXHRInterceptor | undefined;
+      const interceptor = req('react-native/Libraries/Network/XHRInterceptor') as
+        ReactNativeXHRInterceptor | undefined;
       if (interceptor && typeof interceptor.setSendCallback === 'function') {
         g.__REACT_NATIVE_XHR_INTERCEPTOR__ = interceptor;
         return interceptor;

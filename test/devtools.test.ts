@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  createClient,
-  isDevToolsHidden,
-  withDevToolsSuppression,
-} from '../src/index.js';
+import { createClient, isDevToolsHidden, withDevToolsSuppression } from '../src/index.js';
 
 describe('Universal DevTools Stealth Mode (isDevToolsHidden)', () => {
   it('returns false when filter is false, undefined, or empty', () => {
@@ -47,9 +43,9 @@ describe('Universal DevTools Stealth Mode (isDevToolsHidden)', () => {
 
 describe('Stealth Mode Client Integration', () => {
   it('sets hideFromDevTools flag on resolvedConfig when client-level option is true', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ secret: 'data' }), { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ secret: 'data' }), { status: 200 }));
 
     const client = createClient({
       baseURL: 'https://api.test',
@@ -63,9 +59,11 @@ describe('Stealth Mode Client Integration', () => {
   });
 
   it('suppresses debug logging when request matches hideFromDevTools', async () => {
-    const mockFetch = vi.fn().mockImplementation(() =>
-      Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })),
+      );
 
     const debugLogger = vi.fn();
     const client = createClient({
@@ -87,9 +85,9 @@ describe('Stealth Mode Client Integration', () => {
   });
 
   it('allows request-level override of hideFromDevTools', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
     const debugLogger = vi.fn();
     const client = createClient({
@@ -106,9 +104,11 @@ describe('Stealth Mode Client Integration', () => {
   });
 
   it('preserves hideFromDevTools flag on error objects', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500 }),
+      );
 
     const debugLogger = vi.fn();
     const client = createClient({
@@ -131,7 +131,12 @@ interface MockXHR {
 }
 
 type MockSendCallback = (data: unknown, xhr: MockXHR) => void;
-type MockResponseCallback = (status: number, timeout: number, response: unknown, url?: string) => void;
+type MockResponseCallback = (
+  status: number,
+  timeout: number,
+  response: unknown,
+  url?: string,
+) => void;
 
 interface MockInterceptor {
   isInterceptorEnabled: () => boolean;

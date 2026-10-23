@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Complete DevTools Response Suppression**: Fixed an oversight in React Native devtools suppression where `setResponseCallback` was not hooked alongside `setSendCallback`, ensuring incoming response data is completely suppressed for protected endpoints.
 - **Documentation Overhaul**: Modernized all documentation guides and references to a clean, authoritative technical style without emojis, adding complete configuration reference tables and platform behavior matrices.
 
+### Fixed & Security
+
+- **Security - Auth Header Token Hashing in Cache Keys**: Pre-emptively hashes `Authorization` tokens to opaque deterministic hex digests before cache key composition, eliminating credential leaks in persistent cache storage and debug logs.
+- **Cross-Domain Cache & Deduplication Isolation**: Preserves URL origins on absolute paths to avoid cross-domain key collisions, paired with path-exact cache eviction on mutations (`deleteExactPath`).
+- **Cross-Engine `createAbortError`**: Added safe fallback for runtimes where the global `DOMException` is absent (such as older React Native JSC or Hermes engines).
+- **DevTools Concurrent Hook Reference-Counting**: Replaced singleton suppression hook state with reference-counted listeners to prevent callback leaks and race conditions under concurrent requests.
+- **Binary `ArrayBufferView` Preservation**: Fixed body serialization so native `Uint8Array`, `Buffer`, and `DataView` are preserved as binary payloads rather than JSON-stringified.
+- **SSE Stream Abort Termination**: Background stream readers are aborted immediately when `options.signal` triggers.
+- **Offline Queue Path Parameter Interpolation**: Restores dynamic `pathParams` when offline requests are replayed.
+- **RFC-Compliant 204/205/304 Mock Responses**: `MockAdapter` automatically supplies `null` body for null-body HTTP statuses per WHATWG Fetch specification.
+- **Extended HTTP Shorthands**: Added `.head()` and `.options()` to `HttpClient` and `SafeHttpClient`, with corresponding `onHead` and `onOptions` in `MockAdapter`.
+- **Circuit Breaker Inspection API**: Added `.getState()`, `.getFailureCount()`, and `.reset()` inspection on `api.circuitBreaker`.
+- **Query Parameter Array Support**: Supported `(string | number | boolean)[]` in query params and preserved `#` hash fragments during URL construction.
+- **Async Schema Validation**: Added full support for async Zod and Standard Schema v1 validation (`safeParseAsync` / `parseAsync`).
+
 ## [0.1.7] - 2026-10-20
 
 ### Fixed & Tested

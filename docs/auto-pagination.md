@@ -4,14 +4,14 @@ This guide explains how to traverse and consume paginated REST APIs using **`rea
 
 ---
 
-## 🚀 Overview
+## Overview
 
 Traversing multi-page APIs typically involves repetitive `while` loops, tracking offsets, parsing page counts, and accumulating arrays. 
 
-`api.paginate` provides a unified, type-safe interface supporting **4 pagination models** across **3 consumption patterns**:
+`api.paginate` provides a unified, type-safe interface supporting 4 pagination models across 3 consumption patterns:
 
 ```typescript
-// 1. Stream items individually (Memory efficient!)
+// 1. Stream items individually (AsyncGenerator)
 for await (const user of api.paginate<User>('/users')) {
   console.log(user.name);
 }
@@ -28,7 +28,7 @@ console.log(`Total collected: ${allUsers.length}`);
 
 ---
 
-## 🛠️ The 4 Traversal Strategies
+## Traversal Strategies
 
 ### Strategy 1: Page-Number Pagination (`type: 'page'`)
 Increments page number query parameters (`?page=1`, `?page=2`, etc.):
@@ -51,7 +51,7 @@ const posts = await api.paginate.all<Post>('/posts', {
 });
 ```
 
-### Strategy 2: Offset & Limit Pagination (`type: 'offset'`)
+### Strategy 2: Offset and Limit Pagination (`type: 'offset'`)
 Increments the offset parameter by `pageSize` (`?offset=0`, `?offset=25`, `?offset=50`):
 
 ```typescript
@@ -107,9 +107,9 @@ The client automatically invokes `parseNextLinkHeader()` to extract the exact UR
 
 ---
 
-## 🎯 Custom Extraction Functions
+## Custom Extraction Functions
 
-When dealing with non-standard API response envelopes:
+When dealing with nested or non-standard API response envelopes:
 
 ```typescript
 interface ApiResponse<T> {
@@ -134,11 +134,11 @@ const items = await api.paginate.all<Item, ApiResponse<Item>>('/catalog', {
 
 ---
 
-## 🛡️ Termination & Infinite Loop Prevention
+## Termination and Safety Limits
 
 Pagination automatically halts when any of the following conditions are met:
 1. The server returns an **empty array** (`[]` or zero items extracted).
-2. The extracted page contains **fewer items** than `pageSize`.
-3. `getNextCursor` or `getNextUrl` returns `null` or `undefined`.
-4. The number of fetched pages reaches `maxPages` (Default: `50` to safeguard mobile devices against unintentional infinite loops).
-
+2. The page count reaches `maxPages` (prevents unintended infinite loops).
+3. `getNextCursor` returns `null` or `undefined`.
+4. `getNextUrl` returns `null` or `undefined`.
+5. The `Link` header no longer contains a `rel="next"` relation.

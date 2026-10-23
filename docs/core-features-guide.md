@@ -1,31 +1,39 @@
-# Core Features & Usage Guide
+# Core Features and Usage Guide
 
-This guide covers the core ergonomics, request dispatching, URL formatting, safe execution, and interceptor patterns available in **`react-native-fetch-client`**.
+This guide covers client initialization, HTTP request dispatching, URL formatting, safe execution tuples, interceptors, polling, and error handling in **`react-native-fetch-client`**.
 
 ---
 
-## 🛠️ Client Initialization
+## Client Initialization
 
-Create a customized client instance with `createClient`:
+Create an instance with `createClient`:
 
 ```typescript
 import { createClient } from 'react-native-fetch-client';
 
 const api = createClient({
   baseURL: 'https://api.example.com/v1',
-  timeout: 10_000, // 10 seconds timeout
+  timeout: 10_000,
   headers: {
-    'Accept': 'application/json',
+    Accept: 'application/json',
     'X-Client-Platform': 'react-native',
   },
 });
 ```
 
+You can also import the default client directly:
+
+```typescript
+import client from 'react-native-fetch-client';
+
+const res = await client.get('https://api.example.com/v1/health');
+```
+
 ---
 
-## 📡 HTTP Methods & Shorthands
+## HTTP Methods and Shorthands
 
-All HTTP methods support full TypeScript generics for compile-time payload typing:
+All HTTP methods support TypeScript generics for compile-time payload typing:
 
 ```typescript
 interface User {
@@ -57,8 +65,9 @@ const resPatch = await api.patch<User>('/users/1', {
   name: 'Jane Q. Smith',
 });
 
-// 5. DELETE
+// 5. DELETE (aliases: api.delete and api.del)
 await api.delete('/users/1');
+await api.del('/users/1');
 
 // 6. Generic request()
 const custom = await api.request<User>({
@@ -70,9 +79,9 @@ const custom = await api.request<User>({
 
 ---
 
-## 🧩 Path Parameter Interpolation (`pathParams`)
+## Path Parameter Interpolation (`pathParams`)
 
-Eliminate manual string concatenation or template literal bugs when constructing dynamic URLs:
+Interpolates template parameters directly into the URL path:
 
 ```typescript
 // Named token syntax (:id)
@@ -96,41 +105,24 @@ const res2 = await api.get('/projects/{projectId}/tasks/{taskId}', {
 
 ---
 
-## 🔍 Query Parameters & Array Serialization
+## Query Parameters and Serialization
 
-Configure how arrays and nested objects are serialized in URL query strings:
+Query parameters are serialized onto the URL string. Multiple values can be formatted according to API requirements:
 
 ```typescript
-// 1. Array Format: 'brackets' (Default) -> ?tags[]=react&tags[]=native
-const resBrackets = await api.get('/articles', {
-  params: { tags: ['react', 'native'] },
-  paramsSerializer: { arrayFormat: 'brackets' },
-});
-
-// 2. Array Format: 'indices' -> ?tags[0]=react&tags[1]=native
-const resIndices = await api.get('/articles', {
-  params: { tags: ['react', 'native'] },
-  paramsSerializer: { arrayFormat: 'indices' },
-});
-
-// 3. Array Format: 'repeat' -> ?tags=react&tags=native
-const resRepeat = await api.get('/articles', {
-  params: { tags: ['react', 'native'] },
-  paramsSerializer: { arrayFormat: 'repeat' },
-});
-
-// 4. Array Format: 'comma' -> ?tags=react,native
-const resComma = await api.get('/articles', {
+// Array formatting options: 'brackets' (default), 'indices', 'repeat', 'comma'
+const res = await api.get('/articles', {
   params: { tags: ['react', 'native'] },
   paramsSerializer: { arrayFormat: 'comma' },
 });
+// Resolves to: /articles?tags=react,native
 ```
 
 ---
 
-## 📑 Form URL-Encoded Serializer (`formUrlEncoded`)
+## Form URL-Encoded Serializer (`formUrlEncoded`)
 
-Serializes plain JavaScript objects to `application/x-www-form-urlencoded` payloads and automatically injects the matching `Content-Type` header:
+Serializes plain JavaScript objects to `application/x-www-form-urlencoded` payloads and sets the matching `Content-Type` header:
 
 ```typescript
 const response = await api.post('/oauth/token', {
@@ -141,18 +133,16 @@ const response = await api.post('/oauth/token', {
 }, {
   formUrlEncoded: true,
 });
-// Payload is serialized as:
-// grant_type=password&username=user%40example.com&password=secretPassword&scope=read+write
 ```
 
 ---
 
-## 🛡️ Go / Rust Safe Requests (`api.safe.*`)
+## Safe Requests (`api.safe.*`)
 
-Avoid nested `try/catch` boilerplate and unhandled promise rejections. Returns a `[data, error]` tuple where exactly one value is populated:
+Returns a `[data, error]` tuple instead of throwing on rejection, avoiding nested `try/catch` blocks:
 
 ```typescript
-// 1. Safe GET
+// Safe GET
 const [users, err] = await api.safe.get<User[]>('/users');
 
 if (err) {
@@ -163,13 +153,11 @@ if (err) {
   return;
 }
 
-// Guaranteed non-null and fully typed!
 console.log(users.length);
 
-// 2. Safe POST
+// Safe POST
 const [newUser, postErr] = await api.safe.post<User>('/users', { name: 'Alice' });
 if (postErr) {
-  // Handle error cleanly
   return;
 }
 console.log(newUser.id);
@@ -177,9 +165,9 @@ console.log(newUser.id);
 
 ---
 
-## 🎁 Response Unwrapping (`unwrap: true`)
+## Response Unwrapping (`unwrap: true`)
 
-By default, calls return the full `HttpResponse<T>` envelope containing metadata (`status`, `headers`, `cached`, `stale`). To receive `response.data` directly, set `unwrap: true`:
+By default, calls return an `HttpResponse<T>` object containing status, headers, and metadata. To receive `response.data` directly, set `unwrap: true`:
 
 ```typescript
 // Client-level default:
@@ -188,7 +176,7 @@ const client = createClient({
   unwrap: true,
 });
 
-// Returns User[] directly instead of HttpResponse<User[]>:
+// Returns User[] directly:
 const users = await client.get<User[]>('/users');
 
 // Or per-request override:
@@ -198,13 +186,12 @@ console.log(response.status); // 200
 
 ---
 
-## 🔌 Interceptors
+## Interceptors
 
-Interceptors allow inspecting, transforming, or intercepting requests before dispatch and responses before return:
+Interceptors inspect, modify, or cancel requests before dispatch and process responses before return:
 
 ### Request Interceptor
 ```typescript
-// Attach token or custom headers dynamically
 const reqInterceptorId = api.interceptors.request.use(async (config) => {
   const token = await getSecureStorageItem('authToken');
   if (token) {
@@ -216,21 +203,18 @@ const reqInterceptorId = api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Eject interceptor when no longer needed
+// Remove when no longer needed
 api.interceptors.request.eject(reqInterceptorId);
 ```
 
 ### Response Interceptor
 ```typescript
-// Transform responses or log telemetry globally
 const respInterceptorId = api.interceptors.response.use(
   (response) => {
-    console.log(`[HTTP ${response.status}] ${response.config.url} in ${response.config.method}`);
     return response;
   },
   (error) => {
-    // Global error capture (e.g. Sentry)
-    console.error(`Request failed:`, error);
+    console.error('Request failed:', error);
     return Promise.reject(error);
   }
 );
@@ -238,50 +222,46 @@ const respInterceptorId = api.interceptors.response.use(
 
 ---
 
-## ⏱️ Timeout & Abort Cancellation
+## Timeout and Abort Cancellation
 
 ```typescript
-// 1. Millisecond timeout (throws TimeoutError)
+// Millisecond timeout (throws TimeoutError)
 try {
   await api.get('/slow-report', { timeout: 3000 });
 } catch (error) {
   if (isTimeoutError(error)) {
-    console.warn(`Request timed out after 3000ms`);
+    console.warn('Request timed out after 3000ms');
   }
 }
 
-// 2. Manual AbortController (throws CancelError)
+// Manual AbortController (throws CancelError)
 const controller = new AbortController();
 
 setTimeout(() => {
-  controller.abort(); // Cancel request after 500ms
+  controller.abort();
 }, 500);
 
 try {
   await api.get('/large-dataset', { signal: controller.signal });
 } catch (error) {
   if (isCancelError(error)) {
-    console.info(`Request was cancelled by user action`);
+    console.info('Request was cancelled');
   }
 }
 ```
 
 ---
 
-## 🚫 Autocomplete Auto-Cancel (`cancelPrevious`)
+## Search Autocomplete Auto-Cancel (`cancelPrevious`)
 
-In search inputs or filter forms, fast typing can cause race conditions: an earlier slow query might resolve *after* a newer one, displaying outdated results.
-
-Pass `cancelPrevious: '<groupKey>'` to automatically cancel any pending request in that group whenever a new one starts:
+Pass `cancelPrevious: '<groupKey>'` to automatically cancel pending requests in the group whenever a newer query starts:
 
 ```typescript
-// Typing "ca" -> "cat" -> "cats":
-// Each new keystroke automatically cancels the prior in-flight request!
 const searchUsers = async (query: string) => {
   try {
     const res = await api.get('/users/search', {
       params: { q: query },
-      cancelPrevious: 'user-search', // Shared cancellation group
+      cancelPrevious: 'user-search',
     });
     return res.data;
   } catch (err) {
@@ -294,14 +274,13 @@ const searchUsers = async (query: string) => {
 };
 ```
 
-> [!NOTE]
-> Cancellation groups are strictly scoped to each `HttpClient` instance. Separate client instances using the same group key will never cancel each other's requests.
+Cancellation groups are scoped to each `HttpClient` instance.
 
 ---
 
-## 🔄 Smart Polling (`api.poll`)
+## Polling Helper (`api.poll`)
 
-Instead of writing custom `setInterval` loops with timeout bookkeeping, use `api.poll()` to query an endpoint until a condition is met:
+Queries an endpoint until an `until` predicate returns true:
 
 ```typescript
 interface ExportJob {
@@ -311,9 +290,9 @@ interface ExportJob {
 }
 
 const job = await api.poll<ExportJob>('/reports/jobs/export-881', {
-  interval: 1000,   // Poll every 1 second
-  timeout: 45_000,  // Throw TimeoutError if not completed within 45s (aborts hanging requests)
-  backoff: 1.25,    // Progressively back off polling interval (1s -> 1.25s -> 1.56s)
+  interval: 1000,
+  timeout: 45_000,
+  backoff: 1.25,
   until: (res) => res.data.status === 'COMPLETED' || res.data.status === 'FAILED',
 });
 
@@ -322,34 +301,68 @@ if (job.data.status === 'COMPLETED') {
 }
 ```
 
-> [!TIP]
-> The `timeout` option strictly enforces an overall polling deadline and immediately aborts any active in-flight request if the deadline expires. Providing an `options.signal` cancels both active requests and inter-request delays immediately.
+---
+
+## Async Webhook and Resource Waiter (`api.waitFor`)
+
+Polls endpoints until a terminal condition is met with exponential backoff, maximum interval caps, attempt limits, and error status suppression (e.g. ignoring `404 Not Found` while a background job provisioner completes):
+
+```typescript
+interface ProvisioningStatus {
+  id: string;
+  status: 'PENDING' | 'READY' | 'TERMINATED';
+  endpoint?: string;
+}
+
+const res = await api.waitFor<ProvisioningStatus>('/clusters/node-442/status', {
+  interval: 1000,
+  maxInterval: 5000,
+  backoff: 1.5,
+  timeout: 60_000,
+  maxAttempts: 20,
+  ignoreErrors: [404],
+  stopIf: (res) => res.data.status === 'TERMINATED',
+  onTick: ({ attempt, elapsedMs }) => {
+    console.log(`Waiting attempt ${attempt} (${elapsedMs}ms elapsed)...`);
+  },
+  until: (res) => res.data.status === 'READY',
+});
+
+console.log('Cluster ready at:', res.data.endpoint);
+```
+
+### Option Reference for `api.waitFor`
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `until` | `(res: HttpResponse<T>) => boolean \| Promise<boolean>` | **Required** | Predicate returning true when the target state is reached. |
+| `interval` | `number` | `1000` | Initial delay between polling attempts in milliseconds (minimum 50ms). |
+| `maxInterval` | `number` | `10000` | Maximum ceiling cap for interval delay when using exponential backoff. |
+| `backoff` | `number` | `1` | Multiplier applied to interval after each attempt (e.g. `1.5`). |
+| `timeout` | `number` | `30000` | Total overall timeout in milliseconds. Aborts active requests on expiry. |
+| `maxAttempts` | `number` | `Infinity` | Maximum number of attempts allowed before throwing `TimeoutError`. |
+| `ignoreErrors` | `number[] \| boolean` | `[404]` | HTTP status codes to treat as pending and continue polling instead of throwing. |
+| `stopIf` | `(res: HttpResponse<T>) => boolean \| Promise<boolean>` | `undefined` | Early termination predicate. Throws `WaitForAbortedError` if true. |
+| `onTick` | `(info: { attempt, elapsedMs, response? }) => void` | `undefined` | Callback invoked after each attempt with iteration progress. |
 
 ---
 
-## ⏱️ Request Latency Metrics (`response.durationMs`)
+## Request Latency Metrics (`response.durationMs`)
 
-Every `HttpResponse` object includes `durationMs` measuring total roundtrip time from start to finish. This works across normal network calls, in-memory cache hits, and 304 conditional validations:
+Every `HttpResponse` includes `durationMs` measuring roundtrip latency in milliseconds across network calls, cache hits, and 304 conditional validations:
 
 ```typescript
 const res = await api.get('/dashboard/analytics');
 
 console.log(`Latency: ${res.durationMs}ms`);
-console.log(`Served from cache: ${res.cached}`);
-
-// Easily send latency metrics to your telemetry (Sentry, Datadog, etc.)
-analytics.track('api_latency', {
-  endpoint: res.config.url,
-  durationMs: res.durationMs,
-  cached: res.cached,
-});
+console.log(`From cache: ${res.cached}`);
 ```
 
 ---
 
-## 🚨 Error Hierarchy & Type Guards
+## Error Hierarchy and Type Guards
 
-All errors thrown inherit from `FetchNativeError` and provide helper type guards:
+All errors inherit from `FetchNativeError` and include discriminator codes and type guards:
 
 ```typescript
 import {
@@ -359,37 +372,39 @@ import {
   isNetworkError,
   isValidationError,
   isCircuitBreakerError,
+  isWaitForAbortedError,
 } from 'react-native-fetch-client';
 
 try {
   await api.get('/profile');
 } catch (err) {
   if (isHttpError(err)) {
-    // 4xx or 5xx HTTP response
-    console.log(err.status); // 404
-    console.log(err.data);   // Server error JSON payload
+    console.log(`HTTP ${err.status}: ${err.statusText}`);
+    console.log('Error payload:', err.data);
   } else if (isTimeoutError(err)) {
-    console.log(`Timeout: ${err.timeoutMs}ms exceeded`);
+    console.log(`Timed out after ${err.timeoutMs}ms`);
   } else if (isCancelError(err)) {
-    console.log('User cancelled request');
+    console.log('Cancelled');
   } else if (isNetworkError(err)) {
-    console.log('Device is offline or socket refused');
+    console.log('Network unreachable');
   } else if (isValidationError(err)) {
     console.log('Schema validation failed:', err.issues);
   } else if (isCircuitBreakerError(err)) {
-    console.log(`Circuit is open for host: ${err.host}`);
+    console.log(`Circuit open in state: ${err.state}`);
+  } else if (isWaitForAbortedError(err)) {
+    console.log('Wait aborted by stopIf condition:', err.response.data);
   }
 }
 ```
 
 ---
 
-## 📊 Diagnostic Debug Logger (`debug`)
+## Diagnostic Debug Logger (`debug`)
 
-Enable detailed logging for debugging network flows:
+Enable structured logging for inspecting network activity:
 
 ```typescript
-// Simple boolean (logs to console)
+// Boolean (logs to console)
 const api = createClient({
   baseURL: 'https://api.example.com',
   debug: true,
@@ -399,8 +414,7 @@ const api = createClient({
 const customApi = createClient({
   baseURL: 'https://api.example.com',
   debug: (entry) => {
-    console.log(`[NET] ${entry.method} ${entry.url} => ${entry.status} (${entry.durationMs}ms, cached: ${entry.cached})`);
+    console.log(`${entry.method} ${entry.url} -> ${entry.status} (${entry.durationMs}ms)`);
   },
 });
 ```
-

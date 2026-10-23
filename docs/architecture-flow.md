@@ -4,7 +4,7 @@ This document details the complete end-to-end lifecycle of an HTTP request withi
 
 ---
 
-## 🧭 The 16-Stage Execution Pipeline
+## The 16-Stage Execution Pipeline
 
 Every call (`api.get()`, `api.post()`, `api.safe.get()`, `api.request()`) is executed through a deterministic, ordered pipeline orchestrated in `src/executor.ts`:
 
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ---
 
-## 🔬 Stage-by-Stage Breakdown
+## Stage-by-Stage Breakdown
 
 ### Stage 1: Client Entry & Options Merging
 * **File Reference**: [`src/client.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/client.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
@@ -79,7 +79,7 @@ sequenceDiagram
 * **Path Parameter Replacement**:
   Tokens such as `/org/:orgId/users/{userId}` are matched against `config.pathParams = { orgId: 'acme', userId: 42 }` and interpolated to `/org/acme/users/42`.
 * **BaseURL Resolution**:
-  Relative paths are cleanly prepended with `baseURL`, ensuring no duplicated or missing slashes (`https://api.domain.com/v1` + `/users` ➔ `https://api.domain.com/v1/users`).
+  Relative paths are cleanly prepended with `baseURL`, ensuring no duplicated or missing slashes (`https://api.domain.com/v1` + `/users` -> `https://api.domain.com/v1/users`).
 * **Query Parameter Serialization**:
   Arrays can be formatted using 4 RFC strategies:
   * `'brackets'`: `filter[]=a&filter[]=b`

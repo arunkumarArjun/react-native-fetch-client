@@ -127,7 +127,6 @@ describe('Audit Fixes & Correctness Regressions (15 issues verification)', () =>
     });
   });
 
-
   // 4. Cache key Authorization hashing
   describe('Issue 4: Authorization Header Hashing in Cache Keys', () => {
     it('hashes the Bearer token and never exposes raw credentials in the cache key', () => {

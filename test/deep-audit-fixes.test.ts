@@ -42,7 +42,6 @@ describe('Deep Project Audit & Correctness Fixes (15 new issues verification)', 
     expect(relKey).toBe('GET:/users');
   });
 
-
   // 4. SSE Stream reader cancels on abort
   it('Issue 4: parseSseStream cancels underlying reader when caller AbortSignal triggers', async () => {
     let cancelCalled = false;

@@ -132,9 +132,10 @@ describe('Deep Project Audit & Correctness Fixes (15 new issues verification)', 
     });
 
     const client = createClient({ baseURL: 'https://api.example.com', fetchImpl });
-    const allItems = await client.paginate.all<{ id: number; name: string }>('/items', {
-      pagination: { type: 'page', pageSize: 1 },
-    });
+    const allItems = await client.paginate.all<{ id: number; name: string }>(
+      '/items',
+      { pagination: { type: 'page', pageSize: 1 } },
+    );
 
     expect(allItems.length).toBe(2);
     expect(callCount).toBe(3); // page 1, page 2, page 3 (empty -> stops)
@@ -181,16 +182,12 @@ describe('Deep Project Audit & Correctness Fixes (15 new issues verification)', 
     const storage = new MemoryStorageAdapter();
     const executedUrls: string[] = [];
     const client = {
-      request: vi
-        .fn()
-        .mockImplementation(
-          (cfg: { url: string; pathParams?: Record<string, string | number> }) => {
-            // Emulate executor pathParams interpolation
-            const finalUrl = cfg.url.replace(':id', String(cfg.pathParams?.['id']));
-            executedUrls.push(finalUrl);
-            return Promise.resolve({ status: 200, data: { ok: true } });
-          },
-        ),
+      request: vi.fn().mockImplementation((cfg: { url: string; pathParams?: Record<string, string | number> }) => {
+        // Emulate executor pathParams interpolation
+        const finalUrl = cfg.url.replace(':id', String(cfg.pathParams?.['id']));
+        executedUrls.push(finalUrl);
+        return Promise.resolve({ status: 200, data: { ok: true } });
+      }),
     };
 
     const queue = createOfflineQueue({

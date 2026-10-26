@@ -5,27 +5,9 @@ import type { CacheStorageAdapter } from '../src/types.js';
 
 describe('P0 Cache Isolation and Reliability Tests', () => {
   it('cache key distinguishes different responseType values', () => {
-    const keyJson = generateCacheKey(
-      'GET',
-      'https://api.example.com/data',
-      undefined,
-      false,
-      'json',
-    );
-    const keyBlob = generateCacheKey(
-      'GET',
-      'https://api.example.com/data',
-      undefined,
-      false,
-      'blob',
-    );
-    const keyText = generateCacheKey(
-      'GET',
-      'https://api.example.com/data',
-      undefined,
-      false,
-      'text',
-    );
+    const keyJson = generateCacheKey('GET', 'https://api.example.com/data', undefined, false, 'json');
+    const keyBlob = generateCacheKey('GET', 'https://api.example.com/data', undefined, false, 'blob');
+    const keyText = generateCacheKey('GET', 'https://api.example.com/data', undefined, false, 'text');
 
     expect(keyJson).not.toBe(keyBlob);
     expect(keyJson).not.toBe(keyText);

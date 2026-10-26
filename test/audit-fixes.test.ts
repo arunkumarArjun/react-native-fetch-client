@@ -4,9 +4,8 @@ import {
   generateCacheKey,
   AuthRefreshError,
   isAuthRefreshError,
-  createOfflineQueue,
-  MemoryStorageAdapter,
 } from '../src/index.js';
+import { createOfflineQueue, MemoryStorageAdapter } from '../src/offline/index.js';
 
 describe('Audit Fixes & Correctness Regressions (15 issues verification)', () => {
   // 1. Executor & Cache - Mutation invalidation is exact and safe
@@ -367,34 +366,6 @@ describe('Audit Fixes & Correctness Regressions (15 issues verification)', () =>
 
       const [, optErr] = await client.safe.options('/check');
       expect(optErr).toBeNull();
-    });
-  });
-
-  // 15. Circuit breaker state inspection and reset
-  describe('Issue 15: Circuit Breaker Inspection and Reset on HttpClient', () => {
-    it('exposes circuitBreaker on HttpClient instance allowing state query and reset', async () => {
-      const fetchImpl = vi.fn().mockImplementation(() => {
-        return Promise.resolve(new Response('Server Error', { status: 500 }));
-      });
-
-      const client = createClient({
-        baseURL: 'https://api.example.com',
-        fetchImpl,
-        circuitBreaker: { failureThreshold: 2, resetTimeoutMs: 10000 },
-      });
-
-      expect(client.circuitBreaker).toBeDefined();
-      expect(client.circuitBreaker?.getState()).toBe('CLOSED');
-
-      // Trigger 2 failures to trip the circuit
-      await expect(client.get('/fail-1')).rejects.toThrow();
-      await expect(client.get('/fail-2')).rejects.toThrow();
-
-      expect(client.circuitBreaker?.getState()).toBe('OPEN');
-
-      // Caller can programmatically reset the circuit breaker:
-      client.circuitBreaker?.reset();
-      expect(client.circuitBreaker?.getState()).toBe('CLOSED');
     });
   });
 });

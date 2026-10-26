@@ -3,15 +3,14 @@ import {
   createClient,
   generateCacheKey,
   generateDedupKey,
-  createMockAdapter,
-  createOfflineQueue,
-  MemoryStorageAdapter,
   parseSseStream,
   createAbortError,
   buildUrl,
   validateData,
   type RequestConfig,
 } from '../src/index.js';
+import { createMockAdapter } from '../src/mock.js';
+import { createOfflineQueue, MemoryStorageAdapter } from '../src/offline/index.js';
 import { serializeBody } from '../src/serialize.js';
 
 describe('Deep Project Audit & Correctness Fixes (15 new issues verification)', () => {

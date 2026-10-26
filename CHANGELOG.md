@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-26
+
+### Breaking Changes & Architecture Refactor
+
+- **Modular Subpath Exports**:
+  - `createMockAdapter` and testing types (`MockAdapter`, `MockHandler`, `MockReplyCallback`, `MockHistoryItem`) are now imported from `react-native-fetch-client/mock`.
+  - `createOfflineQueue`, `MemoryStorageAdapter`, and offline types are now imported from `react-native-fetch-client/offline`.
+  - Root `react-native-fetch-client` entry point now exports only core HTTP client primitives, achieving 0 KB production bundle impact for test mocking and offline storage utilities.
+- **Removed Circuit Breaker**:
+  - Removed `CircuitBreaker`, `CircuitBreakerError`, `isCircuitBreakerError`, and `circuitBreaker` options from `ClientConfig` and `RequestConfig`.
+  - Mobile resilience is standardized around native **Exponential Backoff with Jitter Retry**, eliminating client-side circuit lockout issues on mobile connection transitions.
+
+### Performance & Bundle Optimization
+
+- **Bundle Size Reduction**:
+  - Core Minified Bundle: Reduced from **45.76 KB** to **36.93 KB** (-19.3%).
+  - Core Gzip: Reduced from **15.07 KB** to **12.05 KB** (-20.0%).
+  - Tree-shaken Consumer: Reduced to **11.64 KB** gzip / **10.43 KB** brotli.
+  - Mock Adapter Plugin: Isolated to **3.13 KB** minified (**1.49 KB** gzip).
+  - Offline Queue Plugin: Isolated to **5.42 KB** minified (**2.21 KB** gzip).
+
+---
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

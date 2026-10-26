@@ -18,7 +18,6 @@ import { executeRequest } from './executor.js';
 import { AuthManager } from './auth.js';
 import { DedupManager } from './dedup.js';
 import { CacheManager } from './cache.js';
-import { CircuitBreaker } from './circuit-breaker.js';
 import { ConcurrencyLimiter } from './concurrency.js';
 import { parseSseStream } from './stream.js';
 import { DefaultInterceptorManager } from './interceptor.js';
@@ -116,11 +115,6 @@ export function createClient(config: ClientConfig = {}): HttpClient {
   const cacheManager = new CacheManager(config.cache);
   const cancelGroups = new Map<string, AbortController>();
 
-  const circuitBreaker =
-    config.circuitBreaker && config.circuitBreaker.enabled !== false
-      ? new CircuitBreaker(config.circuitBreaker)
-      : undefined;
-
   const concurrencyLimiter =
     config.maxConcurrentRequests !== undefined && config.maxConcurrentRequests > 0
       ? new ConcurrencyLimiter(config.maxConcurrentRequests)
@@ -164,7 +158,6 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         authManager,
         dedupManager,
         cacheManager,
-        circuitBreaker,
         concurrencyLimiter,
         cancelGroups,
       );
@@ -609,7 +602,6 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         request<T>({ ...reqConfig, url, method: 'GET' }),
     }),
     cache: cacheManager,
-    ...(circuitBreaker ? { circuitBreaker } : {}),
     interceptors: {
       request: requestInterceptors,
       response: responseInterceptors,

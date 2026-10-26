@@ -1,6 +1,6 @@
 {
   "name": "react-native-fetch-client",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A lightweight, Fetch-native HTTP client for TypeScript, React Native, Expo, browsers, and Node.js",
   "author": "Arunkumar Arjunan",
   "license": "MIT",
@@ -45,6 +45,26 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./mock": {
+      "import": {
+        "types": "./dist/mock.d.ts",
+        "default": "./dist/mock.mjs"
+      },
+      "require": {
+        "types": "./dist/mock.d.cts",
+        "default": "./dist/mock.cjs"
+      }
+    },
+    "./offline": {
+      "import": {
+        "types": "./dist/offline.d.ts",
+        "default": "./dist/offline.mjs"
+      },
+      "require": {
+        "types": "./dist/offline.d.cts",
+        "default": "./dist/offline.cjs"
+      }
     }
   },
   "main": "./dist/index.cjs",
@@ -71,7 +91,8 @@
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "format": "prettier --write src test",
     "format:check": "prettier --check src test",
-    "prepublishOnly": "npm run build && npm run typecheck && npm run test"
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "prepublishOnly": "npm run validate && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

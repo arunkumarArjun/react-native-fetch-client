@@ -7,7 +7,6 @@ import {
   RetryExhaustedError,
   ParseError,
   ValidationError,
-  CircuitBreakerError,
   AuthRefreshError,
   createAbortError,
 } from './errors.js';
@@ -19,7 +18,6 @@ import { resolveRetryPolicy, shouldRetry, calculateRetryDelay, sleep } from './r
 import { generateDedupKey, isDedupEligible, type DedupManager } from './dedup.js';
 import { generateCacheKey, isCacheEligible, type CacheManager } from './cache.js';
 import { validateData } from './validator.js';
-import { CircuitBreaker } from './circuit-breaker.js';
 import type { ConcurrencyLimiter } from './concurrency.js';
 import type { AuthManager } from './auth.js';
 import type {
@@ -174,7 +172,6 @@ export async function executeRequest<T = unknown>(
   authManager?: AuthManager,
   dedupManager?: DedupManager,
   cacheManager?: CacheManager,
-  circuitBreaker?: CircuitBreaker,
   concurrencyLimiter?: ConcurrencyLimiter,
   cancelGroups?: Map<string, AbortController>,
 ): Promise<HttpResponse<T>> {
@@ -236,7 +233,6 @@ export async function executeRequest<T = unknown>(
       authManager,
       dedupManager,
       cacheManager,
-      circuitBreaker,
       concurrencyLimiter,
       activeGroups,
     );
@@ -251,7 +247,6 @@ async function executeRequestInternal<T = unknown>(
   authManager?: AuthManager,
   dedupManager?: DedupManager,
   cacheManager?: CacheManager,
-  circuitBreaker?: CircuitBreaker,
   concurrencyLimiter?: ConcurrencyLimiter,
   cancelGroups?: Map<string, AbortController>,
 ): Promise<HttpResponse<T>> {
@@ -265,7 +260,6 @@ async function executeRequestInternal<T = unknown>(
           authManager,
           dedupManager,
           cacheManager,
-          circuitBreaker,
           concurrencyLimiter,
           cancelGroups,
         ),
@@ -306,19 +300,7 @@ async function executeRequestInternal<T = unknown>(
     await authManager.attachToken(baseHeaders, resolvedUrl, config.auth);
   }
 
-  // 4. Circuit breaker state check
-  const activeBreaker =
-    config.circuitBreaker === false
-      ? undefined
-      : typeof config.circuitBreaker === 'object'
-        ? new CircuitBreaker(config.circuitBreaker)
-        : circuitBreaker;
-
-  if (activeBreaker) {
-    activeBreaker.beforeExecution();
-  }
-
-  // 5. Check cache for eligible safe requests + RFC 7234 conditional validation
+  // 4. Check cache for eligible safe requests + RFC 7234 conditional validation
   const cacheEligible =
     cacheManager !== undefined &&
     isCacheEligible(method, baseHeaders, config.cache, clientConfig.cache);
@@ -366,7 +348,6 @@ async function executeRequestInternal<T = unknown>(
             authManager,
             dedupManager,
             cacheManager,
-            circuitBreaker,
             concurrencyLimiter,
             cancelGroups,
           )
@@ -403,7 +384,7 @@ async function executeRequestInternal<T = unknown>(
     }
   }
 
-  // 6. Deduplicate safe in-flight requests if eligible
+  // 5. Deduplicate safe in-flight requests if eligible
   if (
     dedupManager &&
     !config._isFromDedup &&
@@ -421,7 +402,6 @@ async function executeRequestInternal<T = unknown>(
           authManager,
           dedupManager,
           cacheManager,
-          circuitBreaker,
           concurrencyLimiter,
           cancelGroups,
         );
@@ -684,9 +664,6 @@ async function executeRequestInternal<T = unknown>(
           };
         }
 
-        // Record success in circuit breaker
-        activeBreaker?.recordSuccess();
-
         response.durationMs = Date.now() - startTime;
         logSuccess(response);
         return response;
@@ -710,7 +687,6 @@ async function executeRequestInternal<T = unknown>(
               authManager,
               dedupManager,
               cacheManager,
-              circuitBreaker,
               concurrencyLimiter,
               cancelGroups,
             );
@@ -750,7 +726,6 @@ async function executeRequestInternal<T = unknown>(
   } catch (err: unknown) {
     cleanup();
 
-    activeBreaker?.recordFailure(err);
     logError(err);
 
     if (err instanceof AuthRefreshError) {
@@ -766,7 +741,6 @@ async function executeRequestInternal<T = unknown>(
     if (err instanceof ConfigError) throw err;
     if (err instanceof ParseError) throw err;
     if (err instanceof ValidationError) throw err;
-    if (err instanceof CircuitBreakerError) throw err;
     if (err instanceof NetworkError) throw err;
 
     if ((err instanceof Error && err.name === 'AbortError') || totalController.signal.aborted) {

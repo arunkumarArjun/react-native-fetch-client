@@ -294,36 +294,6 @@ export class ValidationError extends FetchNativeError {
 }
 
 // ---------------------------------------------------------------------------
-// Circuit breaker error
-// ---------------------------------------------------------------------------
-
-/**
- * Thrown when a request is short-circuited because the circuit breaker is currently OPEN
- * due to consecutive upstream failures.
- */
-export class CircuitBreakerError extends FetchNativeError {
-  /** Current state of the circuit breaker at the moment of the rejection ('OPEN' | 'HALF_OPEN'). */
-  readonly state: 'OPEN' | 'HALF_OPEN';
-  /** Configured cooldown period before canary trial in milliseconds. */
-  readonly resetTimeoutMs: number;
-
-  constructor(
-    message: string,
-    options: {
-      state: 'OPEN' | 'HALF_OPEN';
-      resetTimeoutMs: number;
-      config?: ResolvedRequestConfig;
-      cause?: unknown;
-    },
-  ) {
-    super(message, 'CIRCUIT_OPEN', buildOptions(options));
-    this.name = 'CircuitBreakerError';
-    this.state = options.state;
-    this.resetTimeoutMs = options.resetTimeoutMs;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Type guard helpers
 // ---------------------------------------------------------------------------
 
@@ -360,11 +330,6 @@ export function isRetryExhaustedError(err: unknown): err is RetryExhaustedError 
 /** Returns true if `err` is a ValidationError. */
 export function isValidationError(err: unknown): err is ValidationError {
   return err instanceof ValidationError;
-}
-
-/** Returns true if `err` is a CircuitBreakerError. */
-export function isCircuitBreakerError(err: unknown): err is CircuitBreakerError {
-  return err instanceof CircuitBreakerError;
 }
 
 /**

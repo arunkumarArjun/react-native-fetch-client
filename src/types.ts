@@ -13,7 +13,6 @@
  */
 
 import type { FetchNativeError } from './errors.js';
-import type { CircuitBreaker } from './circuit-breaker.js';
 
 // ---------------------------------------------------------------------------
 
@@ -181,28 +180,6 @@ export interface ConcurrencyConfig {
    * 0 or undefined means unlimited. Default: undefined.
    */
   maxConcurrentRequests?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Circuit Breaker
-// ---------------------------------------------------------------------------
-
-/** State of the circuit breaker state machine. */
-export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
-
-/**
- * Configuration for the request circuit breaker.
- * Prevents cascading outages by short-circuiting calls to repeatedly failing endpoints.
- */
-export interface CircuitBreakerConfig {
-  /** Whether the circuit breaker is enabled. Default: true when circuitBreaker config object is provided. */
-  enabled?: boolean;
-  /** Number of consecutive failures before tripping from CLOSED to OPEN. Default: 5. */
-  failureThreshold?: number;
-  /** Time in milliseconds to remain OPEN before testing in HALF_OPEN state. Default: 30000 (30s). */
-  resetTimeoutMs?: number;
-  /** Custom predicate to determine whether an error counts towards failure threshold. */
-  isFailure?: (error: unknown) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -411,10 +388,6 @@ export interface RequestConfig {
    */
   debug?: boolean | DebugLogger;
   /**
-   * Per-request circuit breaker override or configuration.
-   */
-  circuitBreaker?: CircuitBreakerConfig | boolean;
-  /**
    * Cancellation group key. If a previous request is in-flight with the same group key,
    * it will be automatically aborted when this new request starts. Ideal for search/autocomplete.
    */
@@ -454,7 +427,7 @@ export interface InternalRequestConfig extends RequestConfig {
  */
 export interface ClientConfig extends Omit<
   RequestConfig,
-  'url' | 'method' | 'signal' | 'auth' | 'dedup' | 'cache' | 'circuitBreaker'
+  'url' | 'method' | 'signal' | 'auth' | 'dedup' | 'cache'
 > {
   /**
    * Base URL prepended to all relative request URLs.
@@ -497,10 +470,7 @@ export interface ClientConfig extends Omit<
    * Excess requests wait in a FIFO queue. Default: undefined (unlimited).
    */
   maxConcurrentRequests?: number;
-  /**
-   * Circuit breaker configuration to prevent cascading failures.
-   */
-  circuitBreaker?: CircuitBreakerConfig;
+
   /**
    * Custom Fetch implementation used for all requests from this client.
    * Defaults to `globalThis.fetch`.
@@ -900,7 +870,6 @@ export type ErrorCode =
   | 'CONFIG_ERROR' // invalid configuration detected at request time
   | 'RETRY_EXHAUSTED' // all retry attempts were consumed
   | 'VALIDATION_ERROR' // response body failed schema validation
-  | 'CIRCUIT_OPEN' // circuit breaker is OPEN, blocking the request
   | 'WAIT_FOR_ABORTED' // api.waitFor() was aborted by stopIf condition
   | 'AUTH_REFRESH_FAILED'; // automatic token refresh failed
 
@@ -1181,8 +1150,6 @@ export interface HttpClient {
   ): Promise<HttpResponse<T>>;
   /** Response cache manager. */
   cache: ResponseCache;
-  /** Circuit breaker instance if configured on the client. */
-  circuitBreaker?: CircuitBreaker;
   /** Request and response interceptor managers. */
   interceptors: {
     request: InterceptorManager<RequestConfig>;

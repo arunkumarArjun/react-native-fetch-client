@@ -79,15 +79,28 @@ In traditional HTTP setups, achieving production resilience requires installing,
 | **Runtime Dependencies** | **0 (`dependencies: {}`)** | Multiple (`follow-redirects`, etc.) | **0** |
 | **Native Mobile Linking (`pod install`)** | **None** (Pure JS / Web API) | None (via XHR bridge) | None (Web-first) |
 | **Documented React Native & Expo Support** | **First-Class** (Hermes C++, Bridgeless) | Yes (XHR-based) | Community / undocumented |
-| **Automatic Retries & Backoff** | **Built-in** (Exponential + Jitter) | Plugin (`axios-retry`) | Built-in |
+| **Response Body Handling** | **Auto-parsed (`response.data`)** | Auto-parsed (`response.data`) | Chained methods (`.json()`, `.text()`) |
+| **Automatic Retries & Backoff** | **Built-in** (Exponential + Jitter) | Plugin (`axios-retry`) | Built-in (Exponential + Jitter) |
 | **In-Flight Request Deduplication** | **Built-in** (`GET` / `HEAD`) | Plugin / Manual | Not built-in |
 | **Single-Flight 401 Auth Mutex** | **Built-in** (Queue + Replay) | Custom interceptor logic | Custom hooks (`afterResponse`) |
 | **Dual-Tier Cache & SWR** | **Built-in** (Memory LRU + MMKV/Storage) | Plugin (`axios-cache-interceptor`) | Not built-in |
 | **Offline Mutation Replay Queue** | **Built-in** (`.../offline`) | Not built-in | Not built-in |
 | **Declarative Unit Mock Adapter** | **Built-in** (`.../mock`) | Plugin (`axios-mock-adapter`) | Third-party (MSW) |
-| **Runtime Schema Validation** | **Built-in** (Standard Schema v1) | Not built-in | Not built-in |
+| **Runtime Schema Validation** | **Built-in** (Standard Schema v1) | Not built-in | Built-in (`.json(schema)`) |
 | **Safe Requests (`[data, error]`)** | **Built-in** (`api.safe.*`) | Not built-in | Not built-in |
+| **Search Auto-Cancel (`cancelPrevious`)** | **Built-in** | Manual (`AbortController`) | Manual (`AbortController`) |
+| **Async Webhook / Job Waiter** | **Built-in** (`api.waitFor`) | Not built-in | Not built-in |
 | **SSE & AI Token Streaming** | **Built-in** (`api.stream`) | Node-only / Complex on mobile | Built-in (ReadableStream) |
+
+### Key Advantages over Ky
+
+While [Ky](https://github.com/sindresorhus/ky) is a popular Fetch wrapper, it is designed primarily as a lightweight utility for web browsers and server scripts. In contrast, `react-native-fetch-client` provides full cross-platform resilience across **React Native, Expo, Web, and Node.js** with zero dependencies:
+
+1. **Single-Flight 401 Refresh Mutex**: When an access token expires, multiple components mounting simultaneously (e.g., profile, feed, notification badges) receive 401 responses. Ky triggers uncoordinated `afterResponse` hooks, firing duplicate refresh requests that cause OAuth token-reuse rejection. `react-native-fetch-client` locks atomically, executes **one** refresh mutation, and replays all queued requests with the fresh token.
+2. **In-Flight Request Deduplication**: Duplicate component trees or rapid user navigation shouldn't spawn redundant network requests. `react-native-fetch-client` coalesces identical in-flight `GET` requests into a single network socket, preserving bandwidth and mobile battery.
+3. **Offline Mutation Queue (`.../offline`)**: Mobile networks frequently drop in elevators and subways. `react-native-fetch-client/offline` safely stores failed mutations in persistent storage (MMKV or AsyncStorage) and automatically replays them in order with `Idempotency-Key` headers upon NetInfo reconnection.
+4. **Persistent Dual-Tier Caching & SWR**: Browser HTTP caching does not persist across app restarts in React Native. `react-native-fetch-client` provides instant 0ms Stale-While-Revalidate (SWR) caching with pluggable MMKV/AsyncStorage storage.
+5. **Ergonomics & Safe Requests**: `react-native-fetch-client` auto-parses responses into `response.data` (matching standard HTTP client conventions), and offers `api.safe.*` for Go/Rust-style `[data, error]` tuples, eliminating nested `try/catch` boilerplate.
 
 ---
 

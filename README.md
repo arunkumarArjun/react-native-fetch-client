@@ -33,6 +33,21 @@ If you have used Axios or standard HTTP clients, `react-native-fetch-client` pro
 
 ---
 
+## Universal Compatibility (Zero Native Dependencies)
+
+Because `react-native-fetch-client` is built directly on standard WHATWG Web APIs with dual ESM (`.mjs`) and CommonJS (`.cjs`) outputs, it runs natively across all modern JavaScript runtimes with **zero native linking (`pod install`)**:
+
+| Environment | Supported Platforms & Versions | Architecture Notes |
+| :--- | :--- | :--- |
+| **React Native** | iOS, Android, macOS, Windows (v0.70 - v0.76+) | Native Hermes C++ bindings, JSC, Bridgeless & New Architecture ready |
+| **Expo** | Managed workflows, Expo Go, EAS (SDK 50, 51, 52+) | Pure JavaScript / Web API — zero native modules or config plugins required |
+| **Web Browsers** | Chrome, Safari, Firefox, Edge, Mobile Safari/Chrome | Evergreen browser compatibility via native WHATWG `fetch` |
+| **Full-Stack & SSR** | Next.js (App Router, Server Components), Remix, Astro | Dual ESM/CJS bundles with zero browser/DOM runtime assumptions |
+| **Server & Edge** | Node.js (>=18.0.0), Cloudflare Workers, Vercel Edge, Bun, Deno | Standard web specification compliance guarantees edge and serverless compatibility |
+| **Desktop** | Electron, Tauri | Operates identically in renderer windows and main background processes |
+
+---
+
 ## Built-in Capabilities (Out of the Box)
 
 In traditional HTTP setups, achieving production resilience requires installing, maintaining, and stitching together 5 to 7 separate packages. `react-native-fetch-client` provides these capabilities natively in a modular, zero-dependency package:

@@ -71,6 +71,12 @@
   "module": "./dist/index.mjs",
   "react-native": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "mock": ["./dist/mock.d.ts"],
+      "offline": ["./dist/offline.d.ts"]
+    }
+  },
   "files": [
     "dist",
     "src",

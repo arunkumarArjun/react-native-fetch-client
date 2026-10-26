@@ -73,7 +73,7 @@ const file = new File(['Hello, world!'], 'sample.txt', { type: 'text/plain' });
 const uploadRes = await api.upload<{ fileUrl: string }>('/media/upload', file, {
   fieldName: 'document', // Default: 'file'
   fileName: 'custom-sample.txt',
-  additionalFields: {
+  extraFields: {
     folderId: 'inbox',
     isPublic: true,
   },
@@ -105,10 +105,11 @@ import { type ProgressEvent } from 'react-native-fetch-client';
 
 const res = await api.upload('/videos/upload', videoBlob, {
   onUploadProgress: (progress: ProgressEvent) => {
-    const { loaded, total, percent, lengthComputable } = progress;
+    const { loaded, total, progress: ratio } = progress;
 
-    if (lengthComputable && percent !== undefined) {
-      console.log(`Uploading: ${percent}% (${(loaded / 1024 / 1024).toFixed(1)} MB / ${(total! / 1024 / 1024).toFixed(1)} MB)`);
+    if (ratio !== undefined && total !== undefined) {
+      const percent = Math.round(ratio * 100);
+      console.log(`Uploading: ${percent}% (${(loaded / 1024 / 1024).toFixed(1)} MB / ${(total / 1024 / 1024).toFixed(1)} MB)`);
     } else {
       console.log(`Uploaded: ${(loaded / 1024).toFixed(1)} KB`);
     }
@@ -126,8 +127,9 @@ Monitor the download progress of assets, models, or documents:
 const pdf = await api.get('/reports/annual-2026.pdf', {
   responseType: 'blob',
   onDownloadProgress: (progress: ProgressEvent) => {
-    if (progress.percent !== undefined) {
-      console.log(`Downloading report: ${progress.percent}% complete`);
+    if (progress.progress !== undefined) {
+      const percent = Math.round(progress.progress * 100);
+      console.log(`Downloading report: ${percent}% complete`);
     }
   },
 });

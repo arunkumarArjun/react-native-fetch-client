@@ -297,8 +297,10 @@ async function executeRequestInternal<T = unknown>(
   }
 
   if (authManager) {
-    await authManager.attachToken(baseHeaders, resolvedUrl, config.auth);
+    await authManager.attachToken(baseHeaders, resolvedUrl, config.auth, config._isRefreshed);
   }
+
+  const responseType = config.responseType ?? clientConfig.responseType ?? 'json';
 
   // 4. Check cache for eligible safe requests + RFC 7234 conditional validation
   const cacheEligible =
@@ -306,10 +308,19 @@ async function executeRequestInternal<T = unknown>(
     isCacheEligible(method, baseHeaders, config.cache, clientConfig.cache);
 
   const cacheKey = cacheEligible
-    ? generateCacheKey(method, resolvedUrl, baseHeaders, clientConfig.cache?.allowAuthenticated)
+    ? generateCacheKey(
+        method,
+        resolvedUrl,
+        baseHeaders,
+        clientConfig.cache?.allowAuthenticated,
+        responseType,
+      )
     : '';
 
   if (cacheEligible && cacheManager) {
+    if (typeof cacheManager.ready === 'function') {
+      await cacheManager.ready();
+    }
     const cachedEntry = cacheManager.getEntry<T>(cacheKey);
     const etagEnabled =
       typeof config.cache === 'object' && config.cache.etag !== undefined
@@ -391,7 +402,14 @@ async function executeRequestInternal<T = unknown>(
     isDedupEligible(method, config.dedup, clientConfig.dedup)
   ) {
     const credentials = config.credentials ?? clientConfig.credentials;
-    const dedupKey = generateDedupKey(method, resolvedUrl, baseHeaders, credentials, config.body);
+    const dedupKey = generateDedupKey(
+      method,
+      resolvedUrl,
+      baseHeaders,
+      credentials,
+      config.body,
+      responseType,
+    );
 
     return dedupManager.execute<T>(
       dedupKey,
@@ -421,7 +439,6 @@ async function executeRequestInternal<T = unknown>(
   }
 
   const timeout = config.timeout ?? clientConfig.timeout ?? 0;
-  const responseType = config.responseType ?? clientConfig.responseType ?? 'json';
   const credentials = config.credentials ?? clientConfig.credentials;
   const redirect = config.redirect ?? clientConfig.redirect;
   const dispatcher = config.dispatcher ?? clientConfig.dispatcher;
@@ -447,6 +464,10 @@ async function executeRequestInternal<T = unknown>(
     responseType,
     retry: resolvedRetry,
   };
+
+  if (config.signal) {
+    resolvedConfig.signal = config.signal;
+  }
 
   if (Object.keys(params).length > 0) {
     resolvedConfig.params = params;
@@ -502,17 +523,17 @@ async function executeRequestInternal<T = unknown>(
     }
   };
 
-  // If onUploadProgress is specified and body is a string or Uint8Array, notify initial progress
+  // If onUploadProgress is specified, compute size and emit initial start progress (0%)
+  let uploadSize = 0;
   if (onUploadProgress && body !== null && body !== undefined) {
-    let size = 0;
     if (typeof body === 'string') {
-      size = new TextEncoder().encode(body).length;
+      uploadSize = new TextEncoder().encode(body).length;
     } else if (typeof Blob !== 'undefined' && body instanceof Blob) {
-      size = body.size;
+      uploadSize = body.size;
     } else if (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer) {
-      size = body.byteLength;
+      uploadSize = body.byteLength;
     } else if (typeof FormData !== 'undefined' && body instanceof FormData) {
-      size = 1;
+      uploadSize = 1;
       try {
         let count = 0;
         body.forEach((val) => {
@@ -522,17 +543,17 @@ async function executeRequestInternal<T = unknown>(
             count += (val as Blob).size;
           }
         });
-        if (count > 0) size = count;
+        if (count > 0) uploadSize = count;
       } catch {
         // Fallback for FormData environments without forEach
       }
     }
-    if (size > 0) {
+    if (uploadSize > 0) {
       onUploadProgress({
-        loaded: size,
-        total: size,
-        progress: 1,
-        bytes: size,
+        loaded: 0,
+        total: uploadSize,
+        progress: 0,
+        bytes: 0,
       });
     }
   }
@@ -603,6 +624,15 @@ async function executeRequestInternal<T = unknown>(
           onDownloadProgress,
         );
         cleanup();
+
+        if (onUploadProgress && uploadSize > 0) {
+          onUploadProgress({
+            loaded: uploadSize,
+            total: uploadSize,
+            progress: 1,
+            bytes: uploadSize,
+          });
+        }
 
         // 7. Handle 304 Not Modified cache revalidation
         if (response.status === 304 && cacheManager && cacheKey) {

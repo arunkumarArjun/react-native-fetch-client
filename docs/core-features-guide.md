@@ -371,7 +371,7 @@ import {
   isCancelError,
   isNetworkError,
   isValidationError,
-  isCircuitBreakerError,
+  isAuthRefreshError,
   isWaitForAbortedError,
 } from 'react-native-fetch-client';
 
@@ -389,8 +389,8 @@ try {
     console.log('Network unreachable');
   } else if (isValidationError(err)) {
     console.log('Schema validation failed:', err.issues);
-  } else if (isCircuitBreakerError(err)) {
-    console.log(`Circuit open in state: ${err.state}`);
+  } else if (isAuthRefreshError(err)) {
+    console.log('Token refresh failed:', err.cause);
   } else if (isWaitForAbortedError(err)) {
     console.log('Wait aborted by stopIf condition:', err.response.data);
   }

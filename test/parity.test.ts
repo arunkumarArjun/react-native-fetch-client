@@ -164,8 +164,9 @@ describe('Axios Parity Features', () => {
       );
 
       expect(progressEvents.length).toBeGreaterThan(0);
-      expect(progressEvents[0]?.loaded).toBeGreaterThan(0);
-      expect(progressEvents[0]?.total).toBe(progressEvents[0]?.loaded);
+      const lastEvent = progressEvents[progressEvents.length - 1];
+      expect(lastEvent?.loaded).toBeGreaterThan(0);
+      expect(lastEvent?.total).toBe(lastEvent?.loaded);
     });
   });
 

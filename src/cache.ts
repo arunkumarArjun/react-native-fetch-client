@@ -68,13 +68,15 @@ function hashAuthHeader(str: string): string {
 
 /**
  * Generates a cache key for a request.
- * Normalizes URL and includes authorization header hash if authenticated caching is allowed.
+ * Normalizes URL and includes authorization header hash if authenticated caching is allowed,
+ * response type representation, and tenant/custom isolation headers (x-*).
  */
 export function generateCacheKey(
   method: string,
   url: string,
   headers?: Record<string, string>,
   allowAuthenticated = false,
+  responseType?: string,
 ): string {
   const normMethod = method.toUpperCase();
   const isRelative = !isAbsoluteUrl(url);
@@ -83,15 +85,32 @@ export function generateCacheKey(
   const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
   const sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
 
+  const resType = responseType || 'json';
+  const typePart = resType !== 'json' ? `|type:${resType}` : '';
+
   let authPart = '';
-  if (allowAuthenticated && headers) {
-    const authHeader = headers['authorization'] ?? headers['Authorization'];
-    if (authHeader) {
-      authPart = `|auth:${hashAuthHeader(authHeader)}`;
+  const headerParts: string[] = [];
+
+  if (headers) {
+    const keys = Object.keys(headers).sort();
+    for (const key of keys) {
+      const lk = key.toLowerCase();
+      const val = headers[key] ?? '';
+      if (lk === 'authorization') {
+        if (allowAuthenticated && val) {
+          authPart = `|auth:${hashAuthHeader(val)}`;
+        }
+      } else if (lk === 'accept') {
+        headerParts.push(`${lk}=${val}`);
+      } else if (lk.startsWith('x-')) {
+        headerParts.push(`${lk}=${val}`);
+      }
     }
   }
 
-  return `${normMethod}:${sortedUrl}${authPart}`;
+  const customHeadersPart = headerParts.length > 0 ? `|headers:${headerParts.join('&')}` : '';
+
+  return `${normMethod}:${sortedUrl}${typePart}${authPart}${customHeadersPart}`;
 }
 
 /**
@@ -155,6 +174,7 @@ export class CacheManager implements ResponseCache {
   public readonly storage?: CacheStorageAdapter;
   public readonly storageKey: string;
   public readonly defaultStrategy: 'cache-first' | 'stale-while-revalidate';
+  private hydrationPromise: Promise<void> | null = null;
 
   constructor(config?: CacheConfig) {
     this.defaultTtl = config?.defaultTtl ?? config?.ttl ?? DEFAULT_TTL_MS;
@@ -167,8 +187,17 @@ export class CacheManager implements ResponseCache {
 
     // Auto-hydrate if persistent storage is provided
     if (this.storage) {
-      void this.hydrate();
+      this.hydrationPromise = this.hydrate();
+    } else {
+      this.hydrationPromise = Promise.resolve();
     }
+  }
+
+  /**
+   * Returns a promise that resolves when initial cache hydration has completed.
+   */
+  public ready(): Promise<void> {
+    return this.hydrationPromise ?? Promise.resolve();
   }
 
   /**

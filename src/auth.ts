@@ -17,12 +17,15 @@ export class AuthManager {
 
   /**
    * Attaches the access token retrieved from `getToken()` to request headers.
-   * Does not overwrite an existing explicit header of the same name.
+  /**
+   * Attaches the authorization header to outgoing headers if a token is available.
+   * Does not overwrite an existing explicit header of the same name unless overwrite is true.
    */
   async attachToken(
     headers: Record<string, string>,
     _url: string,
     requestAuth?: boolean | { skip?: boolean },
+    overwrite = false,
   ): Promise<void> {
     if (!this.config?.getToken) {
       return;
@@ -55,7 +58,7 @@ export class AuthManager {
     }
 
     const headerKey = this.getHeaderName();
-    if (!headers[headerKey]) {
+    if (overwrite || !headers[headerKey]) {
       const prefix = this.config.tokenPrefix !== undefined ? this.config.tokenPrefix : 'Bearer ';
       headers[headerKey] = `${prefix}${token}`;
     }

@@ -7,7 +7,7 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 [![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
-[![Coverage](https://img.shields.io/badge/tests-270%20passed-brightgreen.svg)](test)
+[![Coverage](https://img.shields.io/badge/tests-276%20passed-brightgreen.svg)](test)
 
 ---
 
@@ -30,6 +30,21 @@ If you have used Axios or standard HTTP clients, `react-native-fetch-client` pro
 - **Response Format**: Predictable envelope with `response.data`, `response.status`, `response.headers`, and `response.config`.
 - **Error Handling**: Standard HTTP status error propagation with `isHttpError` and `isNetworkError` type guards.
 - **Request Cancellation**: Native WHATWG `AbortController` and `AbortSignal` integration.
+
+---
+
+## Universal Compatibility (Zero Native Dependencies)
+
+Because `react-native-fetch-client` is built directly on standard WHATWG Web APIs with dual ESM (`.mjs`) and CommonJS (`.cjs`) outputs, it runs natively across all modern JavaScript runtimes with **zero native linking (`pod install`)**:
+
+| Environment | Supported Platforms & Versions | Architecture Notes |
+| :--- | :--- | :--- |
+| **React Native** | iOS, Android, macOS, Windows (v0.70 - v0.76+) | Native Hermes C++ bindings, JSC, Bridgeless & New Architecture ready |
+| **Expo** | Managed workflows, Expo Go, EAS (SDK 50, 51, 52+) | Pure JavaScript / Web API — zero native modules or config plugins required |
+| **Web Browsers** | Chrome, Safari, Firefox, Edge, Mobile Safari/Chrome | Evergreen browser compatibility via native WHATWG `fetch` |
+| **Full-Stack & SSR** | Next.js (App Router, Server Components), Remix, Astro | Dual ESM/CJS bundles with zero browser/DOM runtime assumptions |
+| **Server & Edge** | Node.js (>=18.0.0), Cloudflare Workers, Vercel Edge, Bun, Deno | Standard web specification compliance guarantees edge and serverless compatibility |
+| **Desktop** | Electron, Tauri | Operates identically in renderer windows and main background processes |
 
 ---
 
@@ -69,6 +84,12 @@ yarn add react-native-fetch-client
 pnpm add react-native-fetch-client
 bun add react-native-fetch-client
 ```
+
+### Upgrading to 0.3.0
+
+- Import **`createMockAdapter`** from `react-native-fetch-client/mock` (not the root package).
+- Import **`createOfflineQueue`** from `react-native-fetch-client/offline`.
+- Remove **`circuitBreaker`** configuration and any use of **`CircuitBreakerError`** / **`isCircuitBreakerError`** (removed in 0.3.0).
 
 ---
 
@@ -171,8 +192,8 @@ const storage = new MMKV({ id: 'app-http-cache' });
 export const api = createClient({
   baseURL: 'https://api.example.com/v1',
   timeout: 10000,
-  bearerToken: async () => await SecureStore.getItemAsync('access_token'),
   auth: {
+    getToken: async () => await SecureStore.getItemAsync('access_token'),
     refreshToken: async () => {
       const refreshToken = await SecureStore.getItemAsync('refresh_token');
       const res = await fetch('https://api.example.com/v1/auth/refresh', {
@@ -302,12 +323,52 @@ for await (const chunk of eventStream) {
 const res = await api.upload('/media/upload', fileBlob, {
   fieldName: 'file',
   fileName: 'photo.jpg',
-  additionalFields: { folderId: 'inbox' },
+  extraFields: { folderId: 'inbox' },
   onUploadProgress: (progress) => {
-    if (progress.lengthComputable && progress.percent !== undefined) {
-      console.log(`Upload: ${progress.percent}% (${progress.loaded} / ${progress.total} bytes)`);
+    if (progress.progress !== undefined) {
+      const percent = Math.round(progress.progress * 100);
+      console.log(`Upload: ${percent}% (${progress.loaded} / ${progress.total} bytes)`);
     }
   },
+});
+```
+
+### 7. Declarative Mock Adapter (`react-native-fetch-client/mock`)
+
+Unit-test API calls and integration flows with zero external dependencies (no MSW or Axios-mock required). Isolated to the `/mock` subpath for 0 KB production app bundle overhead:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+import { createMockAdapter } from 'react-native-fetch-client/mock';
+
+const api = createClient();
+const mock = createMockAdapter(api);
+
+mock.onGet('/users/1').reply(200, { id: 1, name: 'Alice' });
+
+const res = await api.get('/users/1');
+console.log(res.data); // { id: 1, name: 'Alice' }
+```
+
+### 8. Offline Mutation Queue (`react-native-fetch-client/offline`)
+
+Queue mutations when the device is disconnected and automatically replay them sequentially with idempotent UUID headers when connection restores:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+import { createOfflineQueue, MemoryStorageAdapter } from 'react-native-fetch-client/offline';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+const queue = createOfflineQueue({
+  client: api,
+  storage: new MemoryStorageAdapter(), // Or MMKV / AsyncStorage adapter
+  onReplaySuccess: (item) => console.log(`Replayed ${item.method} ${item.url}`),
+});
+
+await queue.enqueue({
+  method: 'POST',
+  url: '/orders',
+  body: { itemId: 'sku-992' },
 });
 ```
 

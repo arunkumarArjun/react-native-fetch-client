@@ -71,6 +71,50 @@ In traditional HTTP setups, achieving production resilience requires installing,
 
 ---
 
+## How It Compares
+
+| Feature | `react-native-fetch-client` | `axios` | `ky` |
+| :--- | :---: | :---: | :---: |
+| **Engine Foundation** | Native WHATWG `fetch` | Legacy `XMLHttpRequest` (default) / Adapter | WHATWG `fetch` |
+| **Runtime Dependencies** | **0 (`dependencies: {}`)** | Multiple (`follow-redirects`, etc.) | **0** |
+| **Native Mobile Linking (`pod install`)** | **None** (Pure JS / Web API) | None (via XHR bridge) | None (Web-first) |
+| **Documented React Native & Expo Support** | **First-Class** (Hermes C++, Bridgeless) | Yes (XHR-based) | Community / undocumented |
+| **Response Body Handling** | **Auto-parsed (`response.data`)** | Auto-parsed (`response.data`) | Chained methods (`.json()`, `.text()`) |
+| **Automatic Retries & Backoff** | **Built-in** (Exponential + Jitter) | Plugin (`axios-retry`) | Built-in (Exponential + Jitter) |
+| **In-Flight Request Deduplication** | **Built-in** (`GET` / `HEAD`) | Plugin / Manual | Not built-in |
+| **Single-Flight 401 Auth Mutex** | **Built-in** (Queue + Replay) | Custom interceptor logic | Custom hooks (`afterResponse`) |
+| **Dual-Tier Cache & SWR** | **Built-in** (Memory LRU + MMKV/Storage) | Plugin (`axios-cache-interceptor`) | Not built-in |
+| **Offline Mutation Replay Queue** | **Built-in** (`.../offline`) | Not built-in | Not built-in |
+| **Declarative Unit Mock Adapter** | **Built-in** (`.../mock`) | Plugin (`axios-mock-adapter`) | Third-party (MSW) |
+| **Runtime Schema Validation** | **Built-in** (Standard Schema v1) | Not built-in | Built-in (`.json(schema)`) |
+| **Safe Requests (`[data, error]`)** | **Built-in** (`api.safe.*`) | Not built-in | Not built-in |
+| **Search Auto-Cancel (`cancelPrevious`)** | **Built-in** | Manual (`AbortController`) | Manual (`AbortController`) |
+| **Async Webhook / Job Waiter** | **Built-in** (`api.waitFor`) | Not built-in | Not built-in |
+| **SSE & AI Token Streaming** | **Built-in** (`api.stream`) | Node-only / Complex on mobile | Built-in (ReadableStream) |
+
+### Key Advantages over Ky
+
+While [Ky](https://github.com/sindresorhus/ky) is a popular Fetch wrapper, it is designed primarily as a lightweight utility for web browsers and server scripts. In contrast, `react-native-fetch-client` provides full cross-platform resilience across **React Native, Expo, Web, and Node.js** with zero dependencies:
+
+1. **Single-Flight 401 Refresh Mutex**: When an access token expires, multiple components mounting simultaneously (e.g., profile, feed, notification badges) receive 401 responses. Ky triggers uncoordinated `afterResponse` hooks, firing duplicate refresh requests that cause OAuth token-reuse rejection. `react-native-fetch-client` locks atomically, executes **one** refresh mutation, and replays all queued requests with the fresh token.
+2. **In-Flight Request Deduplication**: Duplicate component trees or rapid user navigation shouldn't spawn redundant network requests. `react-native-fetch-client` coalesces identical in-flight `GET` requests into a single network socket, preserving bandwidth and mobile battery.
+3. **Offline Mutation Queue (`.../offline`)**: Mobile networks frequently drop in elevators and subways. `react-native-fetch-client/offline` safely stores failed mutations in persistent storage (MMKV or AsyncStorage) and automatically replays them in order with `Idempotency-Key` headers upon NetInfo reconnection.
+4. **Persistent Dual-Tier Caching & SWR**: Browser HTTP caching does not persist across app restarts in React Native. `react-native-fetch-client` provides instant 0ms Stale-While-Revalidate (SWR) caching with pluggable MMKV/AsyncStorage storage.
+5. **Ergonomics & Safe Requests**: `react-native-fetch-client` auto-parses responses into `response.data` (matching standard HTTP client conventions), and offers `api.safe.*` for Go/Rust-style `[data, error]` tuples, eliminating nested `try/catch` boilerplate.
+
+---
+
+## When Not to Use It
+
+Be honest about engineering trade-offs before adopting any library:
+
+1. **You only need simple, sporadic requests**: If your app makes only 2–3 unauthenticated GET calls, the global `fetch()` built into React Native and browsers is completely sufficient without any wrapper.
+2. **You require continuous upload byte progress bars in React Native**: Because this library is built on WHATWG `fetch` rather than legacy `XMLHttpRequest`, continuous intermediate byte progress (0% → 25% → 75% → 100%) during file upload is not supported by standard mobile fetch engines. For multi-gigabyte video or asset uploads requiring progress bars, use `expo-file-system` or `react-native-blob-util`.
+3. **You already use TanStack Query for full client-state management**: TanStack Query already provides in-memory caching, retry policies, and deduplication. While `react-native-fetch-client` pairs exceptionally well with TanStack Query as a transport client (especially for its 401 auth mutex and baseURL defaults), you should disable this library's cache layer (`cache: false`) to avoid double-caching in memory.
+4. **You require legacy Node.js (<18.0) or older runtimes without Fetch**: If you run on Node.js 14/16 without a polyfill, standard WHATWG `fetch` is unavailable.
+
+---
+
 ## Installation
 
 ```bash
@@ -85,11 +129,28 @@ pnpm add react-native-fetch-client
 bun add react-native-fetch-client
 ```
 
+### Optional Peer Dependencies
+
+All core capabilities require **zero** dependencies. If you opt into specific plugins or storage integrations, install the corresponding peer package:
+
+```bash
+# Persistent Cache & Offline Queue storage adapters (choose one for React Native)
+npm install react-native-mmkv
+# or: npm install @react-native-async-storage/async-storage
+
+# Response Schema Validation (choose your preferred validator)
+npm install zod
+# or: npm install valibot / arktype
+
+# Node.js Corporate HTTP/HTTPS Proxies (Node.js runtimes only)
+npm install undici
+```
+
 ### Upgrading to 0.3.0
 
 - Import **`createMockAdapter`** from `react-native-fetch-client/mock` (not the root package).
 - Import **`createOfflineQueue`** from `react-native-fetch-client/offline`.
-- Remove **`circuitBreaker`** configuration and any use of **`CircuitBreakerError`** / **`isCircuitBreakerError`** (removed in 0.3.0).
+- Remove **`circuitBreaker`** configuration and any use of **`CircuitBreakerError`** / **`isCircuitBreakerError`** (standardized on exponential backoff retry in 0.3.0).
 
 ---
 
@@ -473,6 +534,32 @@ try {
   }
 }
 ```
+
+---
+
+## Migrating from Axios
+
+`react-native-fetch-client` follows standard HTTP client ergonomics, making migration from Axios seamless:
+
+| Axios Syntax | `react-native-fetch-client` Syntax | Notes |
+| :--- | :--- | :--- |
+| `import axios from 'axios'` | `import client, { createClient } from 'react-native-fetch-client'` | Ready-to-use default instance or factory |
+| `axios.get(url, config)` | `client.get(url, config)` | 1:1 syntax parity |
+| `axios.post(url, data, config)` | `client.post(url, data, config)` | 1:1 syntax parity |
+| `axios.delete(url, config)` | `client.delete(url, config)` *(or `client.del`)* | Same method with `.del()` shorthand |
+| `axios.create({ baseURL })` | `createClient({ baseURL })` *(or `client.create()`)* | Both `baseURL` and `baseUrl` supported |
+| `res.data`, `res.status`, `res.headers` | `res.data`, `res.status`, `res.headers` | Exact response envelope shape |
+| `axios.interceptors.request.use(...)` | `api.interceptors.request.use(...)` | `.use()` and `.eject()` supported |
+| `axios.isAxiosError(err)` | `isHttpError(err)` or `isFetchNativeError(err)` | Type-safe error discriminator guards |
+| `axios-retry` (external plugin) | `createClient({ retry: { attempts: 3 } })` | Native exponential backoff with jitter |
+| `axios-cache-interceptor` (external plugin) | `createClient({ cache: { enabled: true } })` | Native LRU, SWR & RFC 7234 validation |
+| `axios-mock-adapter` (external plugin) | `import { createMockAdapter } from 'react-native-fetch-client/mock'` | Native declarative mock adapter |
+| Cancel token / `AbortController` | Standard WHATWG `signal: controller.signal` | Standard WHATWG cancellation |
+
+#### Key Differences to Note:
+* **Error Representation**: Instead of checking `error.response?.data`, catch errors using `isHttpError(err)` where `err.status` and `err.data` are strongly typed.
+* **Request Body in Config**: When calling the generic `api.request({ ... })`, pass payload data as `body: data` (following Fetch standards) rather than `data: data`.
+* **Subpaths for Testing & Offline**: Mock utilities and offline queues are imported from dedicated subpaths (`react-native-fetch-client/mock` and `react-native-fetch-client/offline`) to maintain a 0 KB overhead for production bundles.
 
 ---
 

@@ -11,7 +11,7 @@ Documentation for **`react-native-fetch-client`**, a Fetch-native HTTP client de
 | **[Architecture and Execution Flow](./architecture-flow.md)** | Step-by-step trace of how requests move through the execution pipeline. |
 | **[Core Features and Usage Guide](./core-features-guide.md)** | Client initialization, HTTP methods, path params, form encoding, safe requests, polling, search auto-cancel, and latency tracking. |
 | **[Caching and Stale-While-Revalidate](./caching-and-swr.md)** | In-memory LRU, persistent storage adapters (MMKV / AsyncStorage), ETag / 304, declarative invalidation, and SWR strategy. |
-| **[Resilience, Retries, and Offline Queue](./resilience-and-offline.md)** | Exponential backoff, jitter, circuit breaker, concurrency limiter, request deduplication, and offline replay queue. |
+| **[Resilience, Retries, and Offline Queue](./resilience-and-offline.md)** | Exponential backoff, jitter, concurrency limiter, request deduplication, and offline replay queue. |
 | **[Streaming, AI, and File Uploads](./streaming-and-uploads.md)** | Server-Sent Events (SSE), AI LLM token streams, WHATWG streams, file uploads, and upload/download progress metrics. |
 | **[Authentication and Security](./auth-and-security.md)** | Bearer presets, single-flight 401 refresh mutex, proactive token expiry, token rotation, header redaction, and DevTools stealth mode. |
 | **[Auto-Pagination Helper](./auto-pagination.md)** | Stream and collect paginated APIs (`page`, `offset`, `cursor`, and RFC 5988/8288 `Link` headers). |
@@ -21,7 +21,7 @@ Documentation for **`react-native-fetch-client`**, a Fetch-native HTTP client de
  
 ## Architecture Overview
  
-`react-native-fetch-client` is designed around an execution pipeline where each concern (caching, deduplication, concurrency, circuit breaking, authentication) is decoupled into standalone modules that orchestrate seamlessly:
+`react-native-fetch-client` is designed around an execution pipeline where each concern (caching, deduplication, concurrency, authentication) is decoupled into standalone modules that orchestrate seamlessly:
  
 ```mermaid
 flowchart TD
@@ -69,7 +69,7 @@ flowchart TD
    - Operates natively on React Native's Hermes engine without legacy `XMLHttpRequest` bridges or polyfills.
    - Storage adapter interface integrates cleanly with native key-value storage engines such as MMKV and AsyncStorage.
 3. **Resilience by Default**:
-   - Concurrency limiting, circuit breaking, deduplication, and exponential backoff are native primitives within the request pipeline.
+   - Concurrency limiting, deduplication, and exponential backoff are native primitives within the request pipeline.
 4. **Strict Typing**:
    - Configured with TypeScript strict mode. Generics flow through URL resolution, schema validators, responses, and pagination helpers.
 

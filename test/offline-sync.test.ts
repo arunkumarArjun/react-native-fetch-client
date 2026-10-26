@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createOfflineQueue, createClient } from '../src/index.js';
+import { createClient } from '../src/index.js';
+import { createOfflineQueue } from '../src/offline/index.js';
 
 describe('Offline Queue Auto-Online Sync', () => {
   let listeners: Record<string, () => void> = {};

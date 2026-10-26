@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createClient, createMockAdapter, TimeoutError } from '../src/index.js';
+import { createClient, TimeoutError } from '../src/index.js';
+import { createMockAdapter } from '../src/mock.js';
 
 describe('V0.1.3 Enhancements & Ergonomics', () => {
   it('attaches durationMs to HttpResponse on successful requests and cache hits', async () => {

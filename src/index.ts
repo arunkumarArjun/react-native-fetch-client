@@ -39,8 +39,6 @@ export type {
   StreamEvent,
   StreamOptions,
   ConcurrencyConfig,
-  CircuitState,
-  CircuitBreakerConfig,
   StandardSchemaV1,
   ZodLikeSchema,
   FunctionalValidator,
@@ -52,10 +50,6 @@ export type {
   PaginationConfig,
   PaginateOptions,
   PaginateHelper,
-  MockAdapter,
-  MockHandler,
-  MockReplyCallback,
-  MockHistoryItem,
   PollOptions,
   WaitForOptions,
   InternalRequestConfig,
@@ -72,7 +66,6 @@ export {
   ConfigError,
   RetryExhaustedError,
   ValidationError,
-  CircuitBreakerError,
   WaitForAbortedError,
   AuthRefreshError,
   isFetchNativeError,
@@ -82,7 +75,6 @@ export {
   isCancelError,
   isRetryExhaustedError,
   isValidationError,
-  isCircuitBreakerError,
   isWaitForAbortedError,
   isAuthRefreshError,
   createAbortError,
@@ -117,20 +109,8 @@ export { AuthManager } from './auth.js';
 export { DedupManager, generateDedupKey } from './dedup.js';
 export { CacheManager, generateCacheKey, cloneData, isCacheEligible } from './cache.js';
 export { DefaultInterceptorManager } from './interceptor.js';
-export { CircuitBreaker } from './circuit-breaker.js';
 export { ConcurrencyLimiter } from './concurrency.js';
 export { validateData } from './validator.js';
 export { parseSseStream } from './stream.js';
 export { buildUrl, interpolatePath, isAbsoluteUrl } from './url.js';
 export { createPaginateHelper, parseNextLinkHeader } from './paginate.js';
-export { createMockAdapter } from './mock.js';
-
-// Offline Request Queue
-export { createOfflineQueue, MemoryStorageAdapter } from './offline/index.js';
-export type {
-  OfflineQueue,
-  OfflineQueueConfig,
-  OfflineStorageAdapter,
-  QueuedRequest,
-  QueueProcessSummary,
-} from './offline/index.js';

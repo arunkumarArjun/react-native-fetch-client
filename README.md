@@ -14,7 +14,7 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 ## Design Principles
 
 1. **Standards-Based & Zero Dependencies**: Built directly on modern WHATWG specifications (`fetch`, `ReadableStream`, `AbortController`). The package has zero production dependencies (`dependencies: {}`), eliminating supply-chain vulnerabilities and keeping client bundles compact.
-2. **First-Class Resilience**: Concurrency throttling, circuit breaking, in-flight request deduplication, and auth token refresh mutexes are native architectural primitives, not loosely coupled third-party add-ons.
+2. **First-Class Mobile Resilience**: Concurrency throttling, in-flight request deduplication, and auth token refresh mutexes are native architectural primitives, not loosely coupled third-party add-ons.
 3. **Familiar Mental Model**: Follows standard HTTP client conventions (`.get()`, `.post()`, `.put()`, `.delete()`, `.interceptors`), ensuring zero learning curve for developers accustomed to Axios or Fetch.
 
 ---
@@ -35,7 +35,7 @@ If you have used Axios or standard HTTP clients, `react-native-fetch-client` pro
 
 ## Built-in Capabilities (Out of the Box)
 
-In traditional HTTP setups, achieving production resilience requires installing, maintaining, and stitching together 5 to 7 separate packages. `react-native-fetch-client` provides these capabilities natively in a single, zero-dependency package:
+In traditional HTTP setups, achieving production resilience requires installing, maintaining, and stitching together 5 to 7 separate packages. `react-native-fetch-client` provides these capabilities natively in a modular, zero-dependency package:
 
 | Capability | What It Solves |
 | :--- | :--- |
@@ -45,15 +45,14 @@ In traditional HTTP setups, achieving production resilience requires installing,
 | **Response Caching & SWR** | Dual-tier caching: in-memory LRU, persistent storage adapters (MMKV / AsyncStorage), RFC 7234 conditional validation (ETag / 304), and Stale-While-Revalidate (SWR) background revalidation. |
 | **Automatic Cache Invalidation** | Mutations (`POST`, `PUT`, `PATCH`, `DELETE`) automatically purge matching cached paths, with support for declarative route and RegExp pattern invalidation. |
 | **Resilient Retry Engine** | Configurable exponential backoff retries with full jitter, server `Retry-After` adherence, and custom retry predicates. |
-| **Circuit Breaker** | Automatically trips OPEN and fails fast locally when consecutive upstream failures exceed a threshold, preventing battery drain and cascading failures. |
 | **Client Concurrency Throttling** | FIFO queue caps maximum simultaneous active sockets (`maxConcurrentRequests`) to prevent mobile connection bottlenecks. |
 | **Search Autocomplete Auto-Cancel** | `cancelPrevious: '<groupKey>'` automatically aborts superseded search queries as the user types, preventing out-of-order race conditions. |
 | **Native AI & SSE Streaming** | Consume Server-Sent Events (SSE) and AI LLM token streams (OpenAI, Anthropic, Gemini, Ollama) directly via async generators (`api.stream`). |
 | **Go/Rust-Style Safe Requests** | `api.safe.*` returns typed `[data, error]` tuples, eliminating nested `try/catch` boilerplate. |
 | **Standard Schema v1 Validation** | Built-in runtime response validation supporting Zod, Valibot, ArkType, and functional schemas with compile-time type inference. |
 | **Auto-Pagination Helper** | Traversing paginated endpoints (`api.paginate`) across page-number, offset-limit, cursor-based, and RFC 5988/8288 `Link` header APIs. |
-| **Declarative Mock Adapter** | Built-in `createMockAdapter` for unit testing network logic, stubbing routes, simulating network delays or disconnections, and asserting call history. |
-| **Offline Mutation Queue** | Queues mutations offline and replays them sequentially with persistent UUID idempotency headers upon reconnection. |
+| **Declarative Mock Adapter (`.../mock`)** | Modular testing adapter (`react-native-fetch-client/mock`) for unit testing network logic, stubbing routes, and asserting call history with 0 KB production bundle impact. |
+| **Offline Mutation Queue (`.../offline`)** | Modular offline queue (`react-native-fetch-client/offline`) that replays requests sequentially with persistent UUID idempotency headers upon reconnection. |
 
 ---
 
@@ -349,7 +348,6 @@ Options passed to `createClient(config)`:
 | `cache` | `CacheConfig \| boolean` | `undefined` | Caching configuration (LRU, TTL, SWR, storage adapter). |
 | `dedup` | `DedupConfig \| boolean` | `undefined` | In-flight request deduplication configuration. |
 | `retry` | `Partial<RetryPolicy> \| false` | `undefined` | Retry engine configuration (attempts, backoff, jitter, status codes). |
-| `circuitBreaker` | `CircuitBreakerConfig \| boolean` | `undefined` | Circuit breaker failure threshold and reset timeout configuration. |
 | `maxConcurrentRequests` | `number` | `0` | Maximum simultaneous active requests (0 = unlimited). |
 | `unwrap` | `boolean` | `false` | When true, returns `response.data` directly instead of `HttpResponse<T>`. |
 | `debug` | `boolean \| DebugLogger` | `false` | Enable console debug logging or provide a custom logger callback. |
@@ -376,7 +374,6 @@ Options passed to individual request calls (overrides client defaults):
 | `cache` | `RequestCacheConfig \| boolean` | Inherited | Per-request cache configuration, invalidation targets, or SWR callbacks. |
 | `dedup` | `boolean` | Inherited | Enable or disable in-flight deduplication for this request. |
 | `retry` | `Partial<RetryPolicy> \| false` | Inherited | Per-request retry policy override. |
-| `circuitBreaker` | `CircuitBreakerConfig \| boolean` | Inherited | Per-request circuit breaker override. |
 | `unwrap` | `boolean` | Inherited | Override response unwrapping for this request. |
 | `onDownloadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time download progress callback. |
 | `onUploadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time upload progress callback. |
@@ -394,7 +391,6 @@ import {
   isTimeoutError,
   isCancelError,
   isValidationError,
-  isCircuitBreakerError,
   isWaitForAbortedError,
 } from 'react-native-fetch-client';
 
@@ -411,8 +407,6 @@ try {
     console.log('Network failure or offline');
   } else if (isValidationError(err)) {
     console.log('Schema validation failed:', err.issues);
-  } else if (isCircuitBreakerError(err)) {
-    console.log(`Circuit is open in state: ${err.state}`);
   } else if (isWaitForAbortedError(err)) {
     console.log('Wait was terminated by stopIf:', err.response.data);
   }

@@ -17,7 +17,6 @@ sequenceDiagram
     participant Concurrency as Concurrency Limiter
     participant Interceptors as Interceptor Manager
     participant Auth as Auth & Bearer Provider
-    participant CB as Circuit Breaker
     participant Cache as Cache & SWR Manager
     participant Dedup as Dedup Manager
     participant Retry as Retry Engine
@@ -29,11 +28,7 @@ sequenceDiagram
     Normalizer->>Concurrency: Acquire execution slot
     Concurrency->>Interceptors: Run Request Interceptors
     Interceptors->>Auth: Attach Bearer token if configured
-    Auth->>CB: Check Circuit Breaker status
-    alt Circuit Breaker is OPEN
-        CB-->>App: Throw CircuitBreakerError immediately
-    end
-    CB->>Cache: Check LRU / Persistent storage
+    Auth->>Cache: Check LRU / Persistent storage
     alt Fresh Cache Hit
         Cache-->>App: Return cached response (0ms)
     else Stale Cache Hit with SWR
@@ -105,28 +100,21 @@ sequenceDiagram
   * Static string: `Authorization: Bearer <token>` is injected if not already present.
   * Async getter `() => Promise<string>`: Evaluates asynchronously per-request.
 
-### Stage 6: Circuit Breaker Inspection
-* **File Reference**: [`src/circuit-breaker.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/circuit-breaker.ts)
-* Checks the circuit state for the target host:
-  * `CLOSED`: Normal operation. Request proceeds.
-  * `OPEN`: Circuit tripped due to consecutive failures exceeding `failureThreshold`. Fails immediately with `CircuitBreakerError` (saves battery, cellular data, and avoids backend overload).
-  * `HALF_OPEN`: Test period after `resetTimeoutMs`. One probe request is permitted to check backend recovery.
-
-### Stage 7: Cache Check & Stale-While-Revalidate (SWR)
+### Stage 6: Cache Check & Stale-While-Revalidate (SWR)
 * **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
 * If the request is a cacheable method (`GET` or `HEAD`):
   * **Fresh Hit**: Returns cached `HttpResponse` instantly (0ms, `cached: true`).
   * **Stale Hit (SWR Strategy)**: If `strategy: 'stale-while-revalidate'`, returns stale response immediately (0ms, `cached: true, stale: true`) and quietly dispatches background revalidation. When background fetch finishes, `onRevalidated` triggers with fresh data (or `onRevalidationError` if it fails).
   * **ETag Validation**: If an ETag exists for the URL, the client attaches `If-None-Match: <etag>`. If the server returns `304 Not Modified`, the cached body is reused without re-downloading bytes.
 
-### Stage 8: In-Flight Request Deduplication
+### Stage 7: In-Flight Request Deduplication
 * **File Reference**: [`src/dedup.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/dedup.ts)
 * If multiple components in a React component tree trigger identical GET calls simultaneously:
   * Request 1 initiates the network socket.
   * Request 2 and Request 3 subscribe to the identical in-flight promise.
   * When Request 1 resolves, all 3 receive the response simultaneously (`fromDedup: true` on secondary subscribers).
 
-### Stage 9: Resilient Retry Loop
+### Stage 8: Resilient Retry Loop
 * **File Reference**: [`src/retry.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/retry.ts)
 * If network or server errors occur (`500`, `502`, `503`, `504`, `429`):
   * Calculates backoff delay (`delay * 2^attempt`).
@@ -134,7 +122,7 @@ sequenceDiagram
   * Respects `Retry-After` response headers if present.
   * Retries only safe idempotent methods unless explicitly overridden.
 
-### Stage 10: WHATWG Fetch Transport & Progress
+### Stage 9: WHATWG Fetch Transport & Progress
 * **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
 * Connects using `globalThis.fetch` (or custom `fetchImpl`).
 * If `onUploadProgress` or `onDownloadProgress` is provided, requests and responses are monitored calculating loaded/total byte progress metrics.

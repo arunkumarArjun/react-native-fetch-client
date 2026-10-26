@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: {
+    index: 'src/index.ts',
+    mock: 'src/mock.ts',
+    offline: 'src/offline/index.ts',
+  },
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true, // enable source maps for debuggability and Socket.dev source transparency

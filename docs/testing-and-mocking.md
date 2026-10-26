@@ -10,7 +10,8 @@ This guide demonstrates how to unit-test network calls and API integration code 
 
 ```typescript
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createClient, createMockAdapter, type MockAdapter } from 'react-native-fetch-client';
+import { createClient } from 'react-native-fetch-client';
+import { createMockAdapter, type MockAdapter } from 'react-native-fetch-client/mock';
 
 describe('UserService Unit Tests', () => {
   const api = createClient({ baseURL: 'https://api.example.com' });

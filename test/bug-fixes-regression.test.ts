@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createClient, createMockAdapter, TimeoutError, CancelError } from '../src/index.js';
+import { createClient, TimeoutError, CancelError } from '../src/index.js';
+import { createMockAdapter } from '../src/mock.js';
 
 describe('Regression Tests: Bug 1 - Binary Upload byteOffset & byteLength', () => {
   it('respects byteOffset and byteLength for Uint8Array subarray', async () => {

@@ -19,6 +19,8 @@ import type {
   RequestConfig,
 } from './types.js';
 
+export type { MockAdapter, MockHandler, MockHistoryItem, MockReplyCallback };
+
 interface InternalMockHandler extends MockHandler {
   action: 'reply' | 'timeout' | 'networkError';
   status?: number;

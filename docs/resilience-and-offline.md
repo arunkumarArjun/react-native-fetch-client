@@ -47,48 +47,7 @@ const customRetry = await api.get('/orders', {
 
 ---
 
-## 2. Circuit Breaker Pattern
-
-The Circuit Breaker prevents an application from repeatedly dispatching doomed requests to an unavailable backend, saving battery, device CPU, and network data.
-
-```mermaid
-stateDiagram-v2
-    [*] --> CLOSED: Initial state
-
-    CLOSED --> OPEN: Consecutive failures > failureThreshold
-    note right of CLOSED: Normal requests pass through
-
-    OPEN --> HALF_OPEN: Time elapsed > resetTimeoutMs
-    note right of OPEN: Requests fail immediately with CircuitBreakerError (0ms)
-
-    HALF_OPEN --> CLOSED: Probe request succeeds
-    HALF_OPEN --> OPEN: Probe request fails
-    note right of HALF_OPEN: Exactly 1 test request allowed through
-```
-
-### Setup & Usage
-```typescript
-const api = createClient({
-  baseURL: 'https://api.example.com',
-  circuitBreaker: {
-    enabled: true,
-    failureThreshold: 5,   // Trip circuit after 5 consecutive failures
-    resetTimeoutMs: 30_000 // Wait 30 seconds before testing recovery
-  },
-});
-
-try {
-  await api.get('/heavy-computation');
-} catch (err) {
-  if (isCircuitBreakerError(err)) {
-    console.warn(`Circuit is OPEN for host ${err.host}. Backend is down; request halted locally!`);
-  }
-}
-```
-
----
-
-## 3. Concurrency Throttler (`maxConcurrentRequests`)
+## 2. Concurrency Throttler (`maxConcurrentRequests`)
 
 Prevent bandwidth congestion and connection starvation on mobile by limiting simultaneous HTTP connections:
 
@@ -160,16 +119,16 @@ flowchart TD
 
 ### Implementation Guide
 ```typescript
+import { createClient } from 'react-native-fetch-client';
 import {
-  createClient,
   createOfflineQueue,
-  type OfflineQueueStorage,
-} from 'react-native-fetch-client';
+  type OfflineStorageAdapter,
+} from 'react-native-fetch-client/offline';
 import { MMKV } from 'react-native-mmkv';
 
 const storage = new MMKV({ id: 'offline-queue' });
 
-const queueStorageAdapter: OfflineQueueStorage = {
+const queueStorageAdapter: OfflineStorageAdapter = {
   getItem: (key) => storage.getString(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
   removeItem: (key) => storage.delete(key),

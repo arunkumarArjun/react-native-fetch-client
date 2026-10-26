@@ -5,9 +5,30 @@ import { CancelError } from '../src/errors.js';
 
 describe('P0 Request Deduplication Tests', () => {
   it('dedup key distinguishes different responseType values', () => {
-    const keyJson = generateDedupKey('GET', 'https://api.example.com/data', {}, undefined, undefined, 'json');
-    const keyBlob = generateDedupKey('GET', 'https://api.example.com/data', {}, undefined, undefined, 'blob');
-    const keyText = generateDedupKey('GET', 'https://api.example.com/data', {}, undefined, undefined, 'text');
+    const keyJson = generateDedupKey(
+      'GET',
+      'https://api.example.com/data',
+      {},
+      undefined,
+      undefined,
+      'json',
+    );
+    const keyBlob = generateDedupKey(
+      'GET',
+      'https://api.example.com/data',
+      {},
+      undefined,
+      undefined,
+      'blob',
+    );
+    const keyText = generateDedupKey(
+      'GET',
+      'https://api.example.com/data',
+      {},
+      undefined,
+      undefined,
+      'text',
+    );
 
     expect(keyJson).not.toBe(keyBlob);
     expect(keyJson).not.toBe(keyText);
@@ -15,20 +36,30 @@ describe('P0 Request Deduplication Tests', () => {
   });
 
   it('dedup key distinguishes different tenant and user headers (x-tenant-id, x-organization-id)', () => {
-    const keyTenantA = generateDedupKey('GET', 'https://api.example.com/items', { 'X-Tenant-Id': 'tenant-a' });
-    const keyTenantB = generateDedupKey('GET', 'https://api.example.com/items', { 'X-Tenant-Id': 'tenant-b' });
+    const keyTenantA = generateDedupKey('GET', 'https://api.example.com/items', {
+      'X-Tenant-Id': 'tenant-a',
+    });
+    const keyTenantB = generateDedupKey('GET', 'https://api.example.com/items', {
+      'X-Tenant-Id': 'tenant-b',
+    });
 
     expect(keyTenantA).not.toBe(keyTenantB);
 
-    const keyOrg1 = generateDedupKey('GET', 'https://api.example.com/items', { 'x-organization-id': 'org-1' });
-    const keyOrg2 = generateDedupKey('GET', 'https://api.example.com/items', { 'x-organization-id': 'org-2' });
+    const keyOrg1 = generateDedupKey('GET', 'https://api.example.com/items', {
+      'x-organization-id': 'org-1',
+    });
+    const keyOrg2 = generateDedupKey('GET', 'https://api.example.com/items', {
+      'x-organization-id': 'org-2',
+    });
 
     expect(keyOrg1).not.toBe(keyOrg2);
   });
 
   it('dedup key does not store raw authorization tokens in plaintext', () => {
     const rawSecret = 'SUPER_SECRET_BEARER_TOKEN_999';
-    const key = generateDedupKey('GET', 'https://api.example.com/profile', { authorization: `Bearer ${rawSecret}` });
+    const key = generateDedupKey('GET', 'https://api.example.com/profile', {
+      authorization: `Bearer ${rawSecret}`,
+    });
 
     expect(key).not.toContain(rawSecret);
   });
@@ -38,7 +69,10 @@ describe('P0 Request Deduplication Tests', () => {
     const mockFetch = vi.fn().mockImplementation(async () => {
       callCount++;
       await new Promise((r) => setTimeout(r, 20));
-      return new Response(JSON.stringify({ count: 42 }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ count: 42 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     });
 
     const client = createClient({
@@ -60,7 +94,10 @@ describe('P0 Request Deduplication Tests', () => {
   it('does not deduplicate requests asking for different responseTypes', async () => {
     const mockFetch = vi.fn().mockImplementation(() => {
       return Promise.resolve(
-        new Response('{"status":"ok"}', { status: 200, headers: { 'content-type': 'application/json' } }),
+        new Response('{"status":"ok"}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
       );
     });
 
@@ -129,7 +166,9 @@ describe('P0 Request Deduplication Tests', () => {
     expect((r1 as PromiseRejectedResult).reason).toBeInstanceOf(CancelError);
 
     expect(r2.status).toBe('fulfilled');
-    expect((r2 as PromiseFulfilledResult<{ data: { message: string } }>).value.data.message).toBe('done');
+    expect((r2 as PromiseFulfilledResult<{ data: { message: string } }>).value.data.message).toBe(
+      'done',
+    );
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 

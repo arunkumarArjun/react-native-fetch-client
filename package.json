@@ -91,7 +91,8 @@
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "format": "prettier --write src test",
     "format:check": "prettier --check src test",
-    "prepublishOnly": "npm run build && npm run typecheck && npm run test"
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "prepublishOnly": "npm run validate && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

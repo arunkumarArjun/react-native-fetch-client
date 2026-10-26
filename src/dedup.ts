@@ -15,9 +15,17 @@ interface InFlightEntry<T> {
   promise: Promise<HttpResponse<T>>;
 }
 
+function hashAuthHeader(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 /**
  * Generates a stable, deterministic key representing an in-flight request identity.
- * Accounts for method, normalized URL, sorted relevant headers, credentials, and body.
+ * Accounts for method, normalized URL, sorted relevant headers, credentials, body, and responseType.
  */
 export function generateDedupKey(
   method: string,
@@ -25,6 +33,7 @@ export function generateDedupKey(
   headers: Record<string, string> = {},
   credentials?: RequestCredentials,
   body?: unknown,
+  responseType?: string,
 ): string {
   const m = method.toUpperCase();
 
@@ -43,12 +52,18 @@ export function generateDedupKey(
   const headerPairs: string[] = [];
   for (const k of Object.keys(headers).sort()) {
     const lk = k.toLowerCase();
-    if (relevantKeys.includes(lk) && headers[k]) {
-      headerPairs.push(`${lk}=${headers[k]}`);
+    const val = headers[k];
+    if (!val) continue;
+
+    if (lk === 'authorization') {
+      headerPairs.push(`${lk}:${hashAuthHeader(val)}`);
+    } else if (relevantKeys.includes(lk) || lk.startsWith('x-')) {
+      headerPairs.push(`${lk}=${val}`);
     }
   }
 
   const creds = credentials || 'same-origin';
+  const resType = responseType || 'json';
 
   let bodyStr = '';
   if (body !== undefined && body !== null) {
@@ -63,7 +78,7 @@ export function generateDedupKey(
     }
   }
 
-  return `${m}|${normalizedUrl}|${creds}|${headerPairs.join('&')}|${bodyStr}`;
+  return `${m}|${normalizedUrl}|${resType}|${creds}|${headerPairs.join('&')}|${bodyStr}`;
 }
 
 /**

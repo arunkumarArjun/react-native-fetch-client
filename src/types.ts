@@ -505,6 +505,7 @@ export interface ResolvedRequestConfig {
   responseType: ResponseType;
   credentials?: RequestCredentials;
   retry: ResolvedRetryPolicy;
+  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------
@@ -816,6 +817,8 @@ export interface ResponseCache {
   hydrate(): Promise<void>;
   /** Persist current in-memory cache to storage adapter if configured. */
   persist(): Promise<void>;
+  /** Wait for initial hydration to complete if persistent storage adapter is configured. */
+  ready?(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

@@ -138,7 +138,11 @@ export function shouldRetry(
   }
 
   // Non-retryable error types
-  if (error instanceof CancelError) {
+  if (
+    error instanceof CancelError ||
+    (error instanceof Error && error.name === 'AbortError') ||
+    config.signal?.aborted
+  ) {
     return false;
   }
   if (error instanceof ConfigError) {

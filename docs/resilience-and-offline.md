@@ -65,9 +65,11 @@ const promises = Array.from({ length: 15 }, (_, i) => api.get(`/items/${i}`));
 await Promise.all(promises);
 ```
 
+> **Note (v0.3.0):** The client-side circuit breaker was removed. Use the retry engine, concurrency limiter, and deduplication primitives below for mobile resilience.
+
 ---
 
-## 4. In-Flight Request Deduplication (`dedup`)
+## 3. In-Flight Request Deduplication (`dedup`)
 
 Deduplication coalesces concurrent identical `GET` requests into a single network flight. If 5 components on a screen all request `/users/me` on mount:
 
@@ -95,7 +97,7 @@ console.log(res3.fromDedup); // true  (shared subscriber)
 
 ---
 
-## 5. Persistent Offline Mutation Queue
+## 4. Persistent Offline Mutation Queue
 
 The Offline Queue buffers mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) while a mobile device is disconnected, persisting them to disk, and systematically replaying them when connectivity is restored.
 

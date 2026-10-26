@@ -7,7 +7,7 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 [![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
-[![Coverage](https://img.shields.io/badge/tests-270%20passed-brightgreen.svg)](test)
+[![Coverage](https://img.shields.io/badge/tests-276%20passed-brightgreen.svg)](test)
 
 ---
 
@@ -84,6 +84,12 @@ yarn add react-native-fetch-client
 pnpm add react-native-fetch-client
 bun add react-native-fetch-client
 ```
+
+### Upgrading to 0.3.0
+
+- Import **`createMockAdapter`** from `react-native-fetch-client/mock` (not the root package).
+- Import **`createOfflineQueue`** from `react-native-fetch-client/offline`.
+- Remove **`circuitBreaker`** configuration and any use of **`CircuitBreakerError`** / **`isCircuitBreakerError`** (removed in 0.3.0).
 
 ---
 

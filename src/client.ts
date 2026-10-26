@@ -9,7 +9,7 @@
  * - File and FormData upload helper (`.upload()`) with progress tracking
  * - Interceptors for requests and responses
  * - Pluggable in-memory caching and deduplication
- * - Concurrency throttling and Circuit Breaker resiliency
+ * - Concurrency throttling and retry resiliency
  *
  * @module client
  */

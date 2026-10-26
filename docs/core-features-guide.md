@@ -389,8 +389,6 @@ try {
     console.log('Network unreachable');
   } else if (isValidationError(err)) {
     console.log('Schema validation failed:', err.issues);
-  } else if (isCircuitBreakerError(err)) {
-    console.log(`Circuit open in state: ${err.state}`);
   } else if (isWaitForAbortedError(err)) {
     console.log('Wait aborted by stopIf condition:', err.response.data);
   }

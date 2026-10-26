@@ -29,29 +29,28 @@ flowchart TD
     Normalizer --> Concurrency["2. Concurrency Limiter<br/>(FIFO Queue if maxConcurrentRequests set)"]
     Concurrency --> ReqInterceptors["3. Request Interceptors<br/>(inspect, modify, or transform config)"]
     ReqInterceptors --> AuthBearer["4. Bearer Token Provider<br/>(Injects static/dynamic Authorization)"]
-    AuthBearer --> CircuitBreaker["5. Circuit Breaker Inspection<br/>(Fails early if state is OPEN)"]
-    CircuitBreaker --> CacheCheck{"6. Cache Check & SWR"}
+    AuthBearer --> CacheCheck{"5. Cache Check & SWR"}
     
     CacheCheck -- "Fresh Hit" --> ReturnCache["Return Cached Response (0ms)"]
     CacheCheck -- "Stale Hit (SWR)" --> ServeStale["Return Stale (0ms)<br/>+ Quiet Background Revalidation"]
-    CacheCheck -- "Miss / Stale / Force" --> DedupCheck{"7. In-Flight Dedup"}
+    CacheCheck -- "Miss / Stale / Force" --> DedupCheck{"6. In-Flight Dedup"}
  
     DedupCheck -- "Duplicate In-Flight" --> DedupAttach["Attach to Existing Promise<br/>(fromDedup = true)"]
-    DedupCheck -- "New Request" --> RetryLoop["8. Retry Engine Loop<br/>(Backoff, Jitter, Retry-After)"]
+    DedupCheck -- "New Request" --> RetryLoop["7. Retry Engine Loop<br/>(Backoff, Jitter, Retry-After)"]
  
-    RetryLoop --> Transport["9. WHATWG Fetch Transport<br/>(Network round-trip, timeout, cancel)"]
-    Transport --> Auth401{"10. Status 401 & Auth Handler?"}
+    RetryLoop --> Transport["8. WHATWG Fetch Transport<br/>(Network round-trip, timeout, cancel)"]
+    Transport --> Auth401{"9. Status 401 & Auth Handler?"}
  
-    Auth401 -- "Yes (401)" --> SingleFlightRefresh["11. Single-Flight Token Refresh Mutex<br/>(Wait for new token & replay)"]
+    Auth401 -- "Yes (401)" --> SingleFlightRefresh["10. Single-Flight Token Refresh Mutex<br/>(Wait for new token & replay)"]
     SingleFlightRefresh --> RetryLoop
-    Auth401 -- "No" --> ResponseParse["12. Response Parser & Unpack<br/>(JSON, Text, Blob, Stream)"]
+    Auth401 -- "No" --> ResponseParse["11. Response Parser & Unpack<br/>(JSON, Text, Blob, Stream)"]
  
-    ResponseParse --> SchemaValidation{"13. Standard Schema Validator"}
+    ResponseParse --> SchemaValidation{"12. Standard Schema Validator"}
     SchemaValidation -- "Invalid" --> ValidationErrorThrow["Throw ValidationError"]
-    SchemaValidation -- "Valid" --> CacheStore["14. Cache Storage & Persistence<br/>(Save LRU, Persist Adapter, Invalidate on Mutate)"]
+    SchemaValidation -- "Valid" --> CacheStore["13. Cache Storage & Persistence<br/>(Save LRU, Persist Adapter, Invalidate on Mutate)"]
  
-    CacheStore --> RespInterceptors["15. Response Interceptors<br/>(Inspect or transform response)"]
-    RespInterceptors --> OutputFormat{"16. Output Mode"}
+    CacheStore --> RespInterceptors["14. Response Interceptors<br/>(Inspect or transform response)"]
+    RespInterceptors --> OutputFormat{"15. Output Mode"}
  
     OutputFormat -- "Regular" --> FinalResolve["HttpResponse<T>"]
     OutputFormat -- "unwrap: true" --> UnwrapResolve["response.data"]

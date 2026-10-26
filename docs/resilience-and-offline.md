@@ -1,6 +1,6 @@
 # Resilience, Retries & Offline Queue
 
-This guide explores the enterprise reliability and offline mechanics in **`react-native-fetch-client`**: smart exponential backoff retries, jitter, circuit breaking, request deduplication, concurrency throttling, and the persistent offline queue.
+This guide explores the enterprise reliability and offline mechanics in **`react-native-fetch-client`**: smart exponential backoff retries, jitter, request deduplication, concurrency throttling, and the persistent offline queue.
 
 ---
 

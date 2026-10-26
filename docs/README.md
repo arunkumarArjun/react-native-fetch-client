@@ -13,7 +13,7 @@ Documentation for **`react-native-fetch-client`**, a Fetch-native HTTP client de
 | **[Caching and Stale-While-Revalidate](./caching-and-swr.md)** | In-memory LRU, persistent storage adapters (MMKV / AsyncStorage), ETag / 304, declarative invalidation, and SWR strategy. |
 | **[Resilience, Retries, and Offline Queue](./resilience-and-offline.md)** | Exponential backoff, jitter, concurrency limiter, request deduplication, and offline replay queue. |
 | **[Streaming, AI, and File Uploads](./streaming-and-uploads.md)** | Server-Sent Events (SSE), AI LLM token streams, WHATWG streams, file uploads, and upload/download progress metrics. |
-| **[Authentication and Security](./auth-and-security.md)** | Bearer presets, single-flight 401 refresh mutex, proactive token expiry, token rotation, header redaction, and DevTools stealth mode. |
+| **[Authentication and Security](./auth-and-security.md)** | Bearer presets, single-flight 401 refresh mutex, proactive token expiry, token rotation, and header redaction. |
 | **[Auto-Pagination Helper](./auto-pagination.md)** | Stream and collect paginated APIs (`page`, `offset`, `cursor`, and RFC 5988/8288 `Link` headers). |
 | **[Testing and Mock Adapter](./testing-and-mocking.md)** | Zero-dependency declarative test mocking (`createMockAdapter`), route stubbing, error simulations, and history inspection. |
  

@@ -1,6 +1,6 @@
 # Authentication and Security
 
-This guide outlines authentication handling, token rotation, security headers, the single-flight 401 refresh mutex, and DevTools stealth mode in **`react-native-fetch-client`**.
+This guide outlines authentication handling, token rotation, security headers, and the single-flight 401 refresh mutex in **`react-native-fetch-client`**.
 
 ---
 
@@ -89,7 +89,10 @@ import * as SecureStore from 'expo-secure-store';
 const api = createClient({
   baseURL: 'https://api.example.com',
   auth: {
-    // 1. Invoked when a 401 response is received
+    // 1. Called before every request to attach the access token
+    getToken: async () => await SecureStore.getItemAsync('access_token'),
+
+    // 2. Invoked when a 401 response is received
     refreshToken: async () => {
       const currentRefreshToken = await SecureStore.getItemAsync('refresh_token');
 
@@ -113,17 +116,29 @@ const api = createClient({
       return accessToken;
     },
 
-    // 2. Status codes triggering refresh (default: [401])
+    // 3. Status codes triggering refresh (default: [401])
     refreshOn: [401],
 
-    // 3. Excluded URLs to prevent recursive refresh loops
+    // 4. Excluded URLs to prevent recursive refresh loops
     refreshExcludeUrls: ['/auth/login', '/auth/refresh', '/auth/logout'],
 
-    // 4. Header name and prefix configuration
+    // 5. Header name and prefix configuration
     headerName: 'Authorization',
     tokenPrefix: 'Bearer ',
   },
 });
+```
+
+### Skipping Authentication Per Request (`auth: false`)
+
+To send a request to a public endpoint without including the authorization header (even when global `auth` or `bearerToken` is configured):
+
+```typescript
+// Explicitly bypass token injection
+const publicData = await api.get('/public/catalog', { auth: false });
+
+// Or using object notation:
+const feed = await api.get('/public/feed', { auth: { skip: true } });
 ```
 
 ### Proactive Token Refresh (`isExpired`)

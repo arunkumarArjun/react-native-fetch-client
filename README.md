@@ -192,8 +192,8 @@ const storage = new MMKV({ id: 'app-http-cache' });
 export const api = createClient({
   baseURL: 'https://api.example.com/v1',
   timeout: 10000,
-  bearerToken: async () => await SecureStore.getItemAsync('access_token'),
   auth: {
+    getToken: async () => await SecureStore.getItemAsync('access_token'),
     refreshToken: async () => {
       const refreshToken = await SecureStore.getItemAsync('refresh_token');
       const res = await fetch('https://api.example.com/v1/auth/refresh', {
@@ -323,10 +323,11 @@ for await (const chunk of eventStream) {
 const res = await api.upload('/media/upload', fileBlob, {
   fieldName: 'file',
   fileName: 'photo.jpg',
-  additionalFields: { folderId: 'inbox' },
+  extraFields: { folderId: 'inbox' },
   onUploadProgress: (progress) => {
-    if (progress.lengthComputable && progress.percent !== undefined) {
-      console.log(`Upload: ${progress.percent}% (${progress.loaded} / ${progress.total} bytes)`);
+    if (progress.progress !== undefined) {
+      const percent = Math.round(progress.progress * 100);
+      console.log(`Upload: ${percent}% (${progress.loaded} / ${progress.total} bytes)`);
     }
   },
 });

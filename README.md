@@ -311,6 +311,45 @@ const res = await api.upload('/media/upload', fileBlob, {
 });
 ```
 
+### 7. Declarative Mock Adapter (`react-native-fetch-client/mock`)
+
+Unit-test API calls and integration flows with zero external dependencies (no MSW or Axios-mock required). Isolated to the `/mock` subpath for 0 KB production app bundle overhead:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+import { createMockAdapter } from 'react-native-fetch-client/mock';
+
+const api = createClient();
+const mock = createMockAdapter(api);
+
+mock.onGet('/users/1').reply(200, { id: 1, name: 'Alice' });
+
+const res = await api.get('/users/1');
+console.log(res.data); // { id: 1, name: 'Alice' }
+```
+
+### 8. Offline Mutation Queue (`react-native-fetch-client/offline`)
+
+Queue mutations when the device is disconnected and automatically replay them sequentially with idempotent UUID headers when connection restores:
+
+```typescript
+import { createClient } from 'react-native-fetch-client';
+import { createOfflineQueue, MemoryStorageAdapter } from 'react-native-fetch-client/offline';
+
+const api = createClient({ baseURL: 'https://api.example.com' });
+const queue = createOfflineQueue({
+  client: api,
+  storage: new MemoryStorageAdapter(), // Or MMKV / AsyncStorage adapter
+  onReplaySuccess: (item) => console.log(`Replayed ${item.method} ${item.url}`),
+});
+
+await queue.enqueue({
+  method: 'POST',
+  url: '/orders',
+  body: { itemId: 'sku-992' },
+});
+```
+
 ---
 
 ## Detailed Documentation Guides

@@ -4,7 +4,7 @@ This document details the complete end-to-end lifecycle of an HTTP request withi
 
 ---
 
-## The 16-Stage Execution Pipeline
+## The 15-Stage Execution Pipeline
 
 Every call (`api.get()`, `api.post()`, `api.safe.get()`, `api.request()`) is executed through a deterministic, ordered pipeline orchestrated in `src/executor.ts`:
 
@@ -128,14 +128,14 @@ sequenceDiagram
 * If `onUploadProgress` or `onDownloadProgress` is provided, requests and responses are monitored calculating loaded/total byte progress metrics.
 * Supports caller abort via standard `AbortController.signal` or client `timeout`.
 
-### Stage 11: Single-Flight 401 Token Refresh Mutex
+### Stage 10: Single-Flight 401 Token Refresh Mutex
 * **File Reference**: [`src/auth.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/auth.ts)
 * If the server responds with `401 Unauthorized` and `auth.refreshToken` is configured:
   * All concurrent 401 requests pause behind an internal mutex.
   * Exactly **one** refresh network call is dispatched.
   * Once the new access token is obtained, all queued requests are updated with the new Authorization header and replayed.
 
-### Stage 12: Body Parsing
+### Stage 11: Body Parsing
 * **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts)
 * Automatically determines response body format based on `responseType` option or `content-type` header:
   * `json`: Parsed JSON object/array (safely returns null on empty bodies).
@@ -144,23 +144,23 @@ sequenceDiagram
   * `arrayBuffer`: ArrayBuffer binary buffer.
   * `stream`: Raw `ReadableStream<Uint8Array>`.
 
-### Stage 13: Schema Validation
+### Stage 12: Schema Validation
 * **File Reference**: [`src/validator.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/validator.ts)
 * If `config.schema` is defined:
   * Evaluated against **Standard Schema Spec v1** (`~standard`), **Zod** (`.parse()`), **Valibot**, or custom validation functions.
   * If schema issues are found, execution halts and throws `ValidationError` with detailed issue paths and messages.
 
-### Stage 14: Cache Storage & Mutation Invalidation
+### Stage 13: Cache Storage & Mutation Invalidation
 * **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts)
 * **Writing Cache**: Successful GET responses are saved in the in-memory LRU cache and serialized to `storage` (if persistent storage adapter is provided).
 * **Automatic Invalidation**: Successful mutation requests (`POST`, `PUT`, `PATCH`, `DELETE`) automatically invalidate matching path cache entries.
 * **Declarative Invalidation**: Custom routes or RegExp patterns listed in `cache.invalidate` are purged immediately upon mutation success.
 
-### Stage 15: Response Interceptors
+### Stage 14: Response Interceptors
 * **File Reference**: [`src/interceptor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/interceptor.ts)
 * Registered response interceptors run sequentially (`api.interceptors.response.use(...)`), allowing global response transformations or unified error logging.
 
-### Stage 16: Response Output Modes
+### Stage 15: Response Output Modes
 * **Full Envelope**: Standard mode returns `HttpResponse<T>` containing `data`, `status`, `statusText`, `headers`, `durationMs`, `cached`, `stale`, and `fromDedup`.
 * **Unwrap (`unwrap: true`)**: Direct resolution of `response.data`.
 * **Safe Tuples (`api.safe.*`)**: Returns `[data, null]` on success or `[null, error]` on failure (Go / Rust style).

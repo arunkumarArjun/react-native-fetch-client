@@ -12,7 +12,12 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "react-native-fetch-client": ["./src/index.ts"],
+      "react-native-fetch-client/mock": ["./src/mock.ts"],
+      "react-native-fetch-client/offline": ["./src/offline/index.ts"]
+    }
   },
   "include": ["src", "test"],
   "exclude": ["node_modules", "dist", "examples"]

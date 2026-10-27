@@ -16,8 +16,6 @@ export class AuthManager {
   }
 
   /**
-   * Attaches the access token retrieved from `getToken()` to request headers.
-  /**
    * Attaches the authorization header to outgoing headers if a token is available.
    * Does not overwrite an existing explicit header of the same name unless overwrite is true.
    */

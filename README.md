@@ -428,8 +428,8 @@ const queue = createOfflineQueue({
 
 await queue.enqueue({
   method: 'POST',
-  url: '/orders',
-  body: { itemId: 'sku-992' },
+  url: '/sync/actions',
+  body: { action: 'like', targetId: 'post-992' },
 });
 ```
 

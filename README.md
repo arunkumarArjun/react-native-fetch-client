@@ -37,14 +37,14 @@ If you have used Axios or standard HTTP clients, `react-native-fetch-client` pro
 
 Because `react-native-fetch-client` is built directly on standard WHATWG Web APIs with dual ESM (`.mjs`) and CommonJS (`.cjs`) outputs, it runs natively across all modern JavaScript runtimes with **zero native linking (`pod install`)**:
 
-| Environment | Supported Platforms & Versions | Architecture Notes |
-| :--- | :--- | :--- |
-| **React Native** | iOS, Android, macOS, Windows (v0.70 - v0.76+) | Native Hermes C++ bindings, JSC, Bridgeless & New Architecture ready |
-| **Expo** | Managed workflows, Expo Go, EAS (SDK 50, 51, 52+) | Pure JavaScript / Web API — zero native modules or config plugins required |
-| **Web Browsers** | Chrome, Safari, Firefox, Edge, Mobile Safari/Chrome | Evergreen browser compatibility via native WHATWG `fetch` |
-| **Full-Stack & SSR** | Next.js (App Router, Server Components), Remix, Astro | Dual ESM/CJS bundles with zero browser/DOM runtime assumptions |
-| **Server & Edge** | Node.js (>=18.0.0), Cloudflare Workers, Vercel Edge, Bun, Deno | Standard web specification compliance guarantees edge and serverless compatibility |
-| **Desktop** | Electron, Tauri | Operates identically in renderer windows and main background processes |
+| Environment          | Supported Platforms & Versions                                 | Architecture Notes                                                                 |
+| :------------------- | :------------------------------------------------------------- | :--------------------------------------------------------------------------------- |
+| **React Native**     | iOS, Android, macOS, Windows (v0.70 - v0.76+)                  | Native Hermes C++ bindings, JSC, Bridgeless & New Architecture ready               |
+| **Expo**             | Managed workflows, Expo Go, EAS (SDK 50, 51, 52+)              | Pure JavaScript / Web API — zero native modules or config plugins required         |
+| **Web Browsers**     | Chrome, Safari, Firefox, Edge, Mobile Safari/Chrome            | Evergreen browser compatibility via native WHATWG `fetch`                          |
+| **Full-Stack & SSR** | Next.js (App Router, Server Components), Remix, Astro          | Dual ESM/CJS bundles with zero browser/DOM runtime assumptions                     |
+| **Server & Edge**    | Node.js (>=18.0.0), Cloudflare Workers, Vercel Edge, Bun, Deno | Standard web specification compliance guarantees edge and serverless compatibility |
+| **Desktop**          | Electron, Tauri                                                | Operates identically in renderer windows and main background processes             |
 
 ---
 
@@ -52,45 +52,45 @@ Because `react-native-fetch-client` is built directly on standard WHATWG Web API
 
 In traditional HTTP setups, achieving production resilience requires installing, maintaining, and stitching together 5 to 7 separate packages. `react-native-fetch-client` provides these capabilities natively in a modular, zero-dependency package:
 
-| Capability | What It Solves |
-| :--- | :--- |
-| **Single-Flight 401 Auth Mutex** | Queues concurrent requests behind an asynchronous lock when access tokens expire. Exactly 1 refresh call executes; pending requests replay automatically with the new token. |
-| **In-Flight Request Deduplication** | Coalesces identical concurrent `GET` requests into a single network flight, eliminating duplicate requests when multiple UI components mount simultaneously. |
-| **Async Webhook & Resource Waiter** | Dedicated `api.waitFor()` method for polling payment settlement (3DS, Apple Pay, UPI), KYC verification, or background jobs with error suppression, backoff caps, and abort criteria. |
-| **Response Caching & SWR** | Dual-tier caching: in-memory LRU, persistent storage adapters (MMKV / AsyncStorage), RFC 7234 conditional validation (ETag / 304), and Stale-While-Revalidate (SWR) background revalidation. |
-| **Automatic Cache Invalidation** | Mutations (`POST`, `PUT`, `PATCH`, `DELETE`) automatically purge matching cached paths, with support for declarative route and RegExp pattern invalidation. |
-| **Resilient Retry Engine** | Configurable exponential backoff retries with full jitter, server `Retry-After` adherence, and custom retry predicates. |
-| **Client Concurrency Throttling** | FIFO queue caps maximum simultaneous active sockets (`maxConcurrentRequests`) to prevent mobile connection bottlenecks. |
-| **Search Autocomplete Auto-Cancel** | `cancelPrevious: '<groupKey>'` automatically aborts superseded search queries as the user types, preventing out-of-order race conditions. |
-| **Native AI & SSE Streaming** | Consume Server-Sent Events (SSE) and AI LLM token streams (OpenAI, Anthropic, Gemini, Ollama) directly via async generators (`api.stream`). |
-| **Go/Rust-Style Safe Requests** | `api.safe.*` returns typed `[data, error]` tuples, eliminating nested `try/catch` boilerplate. |
-| **Standard Schema v1 Validation** | Built-in runtime response validation supporting Zod, Valibot, ArkType, and functional schemas with compile-time type inference. |
-| **Auto-Pagination Helper** | Traversing paginated endpoints (`api.paginate`) across page-number, offset-limit, cursor-based, and RFC 5988/8288 `Link` header APIs. |
-| **Declarative Mock Adapter (`.../mock`)** | Modular testing adapter (`react-native-fetch-client/mock`) for unit testing network logic, stubbing routes, and asserting call history with 0 KB production bundle impact. |
-| **Offline Mutation Queue (`.../offline`)** | Modular offline queue (`react-native-fetch-client/offline`) that replays requests sequentially with persistent UUID idempotency headers upon reconnection. |
+| Capability                                 | What It Solves                                                                                                                                                                               |
+| :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Single-Flight 401 Auth Mutex**           | Queues concurrent requests behind an asynchronous lock when access tokens expire. Exactly 1 refresh call executes; pending requests replay automatically with the new token.                 |
+| **In-Flight Request Deduplication**        | Coalesces identical concurrent `GET` requests into a single network flight, eliminating duplicate requests when multiple UI components mount simultaneously.                                 |
+| **Async Webhook & Resource Waiter**        | Dedicated `api.waitFor()` method for polling payment settlement (3DS, Apple Pay, UPI), KYC verification, or background jobs with error suppression, backoff caps, and abort criteria.        |
+| **Response Caching & SWR**                 | Dual-tier caching: in-memory LRU, persistent storage adapters (MMKV / AsyncStorage), RFC 7234 conditional validation (ETag / 304), and Stale-While-Revalidate (SWR) background revalidation. |
+| **Automatic Cache Invalidation**           | Mutations (`POST`, `PUT`, `PATCH`, `DELETE`) automatically purge matching cached paths, with support for declarative route and RegExp pattern invalidation.                                  |
+| **Resilient Retry Engine**                 | Configurable exponential backoff retries with full jitter, server `Retry-After` adherence, and custom retry predicates.                                                                      |
+| **Client Concurrency Throttling**          | FIFO queue caps maximum simultaneous active sockets (`maxConcurrentRequests`) to prevent mobile connection bottlenecks.                                                                      |
+| **Search Autocomplete Auto-Cancel**        | `cancelPrevious: '<groupKey>'` automatically aborts superseded search queries as the user types, preventing out-of-order race conditions.                                                    |
+| **Native AI & SSE Streaming**              | Consume Server-Sent Events (SSE) and AI LLM token streams (OpenAI, Anthropic, Gemini, Ollama) directly via async generators (`api.stream`).                                                  |
+| **Go/Rust-Style Safe Requests**            | `api.safe.*` returns typed `[data, error]` tuples, eliminating nested `try/catch` boilerplate.                                                                                               |
+| **Standard Schema v1 Validation**          | Built-in runtime response validation supporting Zod, Valibot, ArkType, and functional schemas with compile-time type inference.                                                              |
+| **Auto-Pagination Helper**                 | Traversing paginated endpoints (`api.paginate`) across page-number, offset-limit, cursor-based, and RFC 5988/8288 `Link` header APIs.                                                        |
+| **Declarative Mock Adapter (`.../mock`)**  | Modular testing adapter (`react-native-fetch-client/mock`) for unit testing network logic, stubbing routes, and asserting call history with 0 KB production bundle impact.                   |
+| **Offline Mutation Queue (`.../offline`)** | Modular offline queue (`react-native-fetch-client/offline`) that replays requests sequentially with persistent UUID idempotency headers upon reconnection.                                   |
 
 ---
 
 ## How It Compares
 
-| Feature | `react-native-fetch-client` | `axios` | `ky` |
-| :--- | :---: | :---: | :---: |
-| **Engine Foundation** | Native WHATWG `fetch` | Legacy `XMLHttpRequest` (default) / Adapter | WHATWG `fetch` |
-| **Runtime Dependencies** | **0 (`dependencies: {}`)** | Multiple (`follow-redirects`, etc.) | **0** |
-| **Native Mobile Linking (`pod install`)** | **None** (Pure JS / Web API) | None (via XHR bridge) | None (Web-first) |
-| **Documented React Native & Expo Support** | **First-Class** (Hermes C++, Bridgeless) | Yes (XHR-based) | Community / undocumented |
-| **Response Body Handling** | **Auto-parsed (`response.data`)** | Auto-parsed (`response.data`) | Chained methods (`.json()`, `.text()`) |
-| **Automatic Retries & Backoff** | **Built-in** (Exponential + Jitter) | Plugin (`axios-retry`) | Built-in (Exponential + Jitter) |
-| **In-Flight Request Deduplication** | **Built-in** (`GET` / `HEAD`) | Plugin / Manual | Not built-in |
-| **Single-Flight 401 Auth Mutex** | **Built-in** (Queue + Replay) | Custom interceptor logic | Custom hooks (`afterResponse`) |
-| **Dual-Tier Cache & SWR** | **Built-in** (Memory LRU + MMKV/Storage) | Plugin (`axios-cache-interceptor`) | Not built-in |
-| **Offline Mutation Replay Queue** | **Built-in** (`.../offline`) | Not built-in | Not built-in |
-| **Declarative Unit Mock Adapter** | **Built-in** (`.../mock`) | Plugin (`axios-mock-adapter`) | Third-party (MSW) |
-| **Runtime Schema Validation** | **Built-in** (Standard Schema v1) | Not built-in | Built-in (`.json(schema)`) |
-| **Safe Requests (`[data, error]`)** | **Built-in** (`api.safe.*`) | Not built-in | Not built-in |
-| **Search Auto-Cancel (`cancelPrevious`)** | **Built-in** | Manual (`AbortController`) | Manual (`AbortController`) |
-| **Async Webhook / Job Waiter** | **Built-in** (`api.waitFor`) | Not built-in | Not built-in |
-| **SSE & AI Token Streaming** | **Built-in** (`api.stream`) | Node-only / Complex on mobile | Built-in (ReadableStream) |
+| Feature                                    |       `react-native-fetch-client`        |                   `axios`                   |                  `ky`                  |
+| :----------------------------------------- | :--------------------------------------: | :-----------------------------------------: | :------------------------------------: |
+| **Engine Foundation**                      |          Native WHATWG `fetch`           | Legacy `XMLHttpRequest` (default) / Adapter |             WHATWG `fetch`             |
+| **Runtime Dependencies**                   |        **0 (`dependencies: {}`)**        |     Multiple (`follow-redirects`, etc.)     |                 **0**                  |
+| **Native Mobile Linking (`pod install`)**  |       **None** (Pure JS / Web API)       |            None (via XHR bridge)            |            None (Web-first)            |
+| **Documented React Native & Expo Support** | **First-Class** (Hermes C++, Bridgeless) |               Yes (XHR-based)               |        Community / undocumented        |
+| **Response Body Handling**                 |    **Auto-parsed (`response.data`)**     |        Auto-parsed (`response.data`)        | Chained methods (`.json()`, `.text()`) |
+| **Automatic Retries & Backoff**            |   **Built-in** (Exponential + Jitter)    |           Plugin (`axios-retry`)            |    Built-in (Exponential + Jitter)     |
+| **In-Flight Request Deduplication**        |      **Built-in** (`GET` / `HEAD`)       |               Plugin / Manual               |              Not built-in              |
+| **Single-Flight 401 Auth Mutex**           |      **Built-in** (Queue + Replay)       |          Custom interceptor logic           |     Custom hooks (`afterResponse`)     |
+| **Dual-Tier Cache & SWR**                  | **Built-in** (Memory LRU + MMKV/Storage) |     Plugin (`axios-cache-interceptor`)      |              Not built-in              |
+| **Offline Mutation Replay Queue**          |       **Built-in** (`.../offline`)       |                Not built-in                 |              Not built-in              |
+| **Declarative Unit Mock Adapter**          |        **Built-in** (`.../mock`)         |        Plugin (`axios-mock-adapter`)        |           Third-party (MSW)            |
+| **Runtime Schema Validation**              |    **Built-in** (Standard Schema v1)     |                Not built-in                 |       Built-in (`.json(schema)`)       |
+| **Safe Requests (`[data, error]`)**        |       **Built-in** (`api.safe.*`)        |                Not built-in                 |              Not built-in              |
+| **Search Auto-Cancel (`cancelPrevious`)**  |               **Built-in**               |         Manual (`AbortController`)          |       Manual (`AbortController`)       |
+| **Async Webhook / Job Waiter**             |       **Built-in** (`api.waitFor`)       |                Not built-in                 |              Not built-in              |
+| **SSE & AI Token Streaming**               |       **Built-in** (`api.stream`)        |        Node-only / Complex on mobile        |       Built-in (ReadableStream)        |
 
 ### Key Advantages over Ky
 
@@ -175,7 +175,7 @@ const api = createClient({
 // Strongly typed GET request
 const response = await api.get<User[]>('/users');
 console.log(response.status); // 200
-console.log(response.data);   // User[]
+console.log(response.data); // User[]
 
 // Strongly typed POST request
 const created = await api.post<User>('/users', {
@@ -213,10 +213,19 @@ const res = await api.get('/users');
 console.log(res.data);
 ```
 
-### JavaScript (CommonJS)
+### JavaScript (CommonJS & ESM) & TypeScript Interop
+
+`react-native-fetch-client` is published as a dual ESM/CommonJS package with complete type declarations for both module systems and subpaths.
+
+**CommonJS (`require`):**
 
 ```javascript
+// Root package
 const { createClient, isHttpError } = require('react-native-fetch-client');
+
+// Subpath packages
+const { createOfflineQueue } = require('react-native-fetch-client/offline');
+const { createMockAdapter } = require('react-native-fetch-client/mock');
 
 const api = createClient({
   baseURL: 'https://api.example.com',
@@ -236,6 +245,20 @@ async function run() {
 
 run();
 ```
+
+**TypeScript Configuration (`tsconfig.json`):**
+For modern React Native, Expo (SDK 50+), Vite, and Next.js, ensure `"moduleResolution"` is set to `"bundler"` or `"node16"` / `"nodenext"`:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+> [!NOTE]
+> For legacy TypeScript configurations using `"moduleResolution": "node"`, `typesVersions` is pre-configured in `package.json` so subpaths (`/offline`, `/mock`) resolve type declarations automatically without requiring manual `paths` mappings.
 
 ---
 
@@ -285,21 +308,54 @@ export const api = createClient({
 
 ### 2. TanStack Query (React Query) Integration
 
-`react-native-fetch-client` is an ideal fetcher for TanStack Query. Pass `unwrap: true` to return the response payload directly:
+`react-native-fetch-client` is an ideal transport client for TanStack Query. While TanStack Query orchestrates cache lifecycle, background refetching, and component state, `react-native-fetch-client` handles the network-level heavy lifting:
+
+- Centralized `baseURL`, timeouts, and default headers.
+- **Single-Flight 401 Refresh Mutex**: When multiple queries mount simultaneously and fail with 401, the client coordinates a single token refresh and transparently replays all in-flight queries—preventing token refresh storms.
+- Request cancellation forwarding via TanStack Query's `signal`.
+
+> [!TIP]
+> Disable client caching (`cache: false` or omit `cache`) on transport clients paired with TanStack Query to prevent redundant duplicate caching in memory.
 
 ```typescript
-import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from 'react-native-fetch-client';
+
+// 1. Configure transport client (cache: false delegates caching to TanStack Query)
+export const api = createClient({
+  baseURL: 'https://api.example.com/v1',
+  timeout: 10000,
+  cache: false,
+  auth: {
+    getToken: async () => await getSecureToken(),
+    refreshToken: async () => await refreshSession(),
+  },
+});
 
 interface UserProfile {
   id: string;
   name: string;
+  email: string;
 }
 
+// 2. Fetch Query: unwrap payload & forward cancellation signal
 export function useUserProfile(userId: string) {
   return useQuery({
-    queryKey: ['user', userId],
-    queryFn: () => api.get<UserProfile>(`/users/${userId}`, { unwrap: true }),
+    queryKey: ['users', userId],
+    queryFn: ({ signal }) => api.get<UserProfile>(`/users/${userId}`, { unwrap: true, signal }),
+  });
+}
+
+// 3. Mutation: patch resource and invalidate cache
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (user: Partial<UserProfile> & { id: string }) =>
+      api.patch<UserProfile>(`/users/${user.id}`, user, { unwrap: true }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['users', data.id], data);
+    },
   });
 }
 ```
@@ -316,11 +372,11 @@ try {
   const order = await api.waitFor<Order>('/orders/ord-992/status', {
     until: (res) => res.data.status === 'succeeded',
     stopIf: (res) => res.data.status === 'failed', // Aborts immediately without waiting for timeout
-    ignoreErrors: [404],                           // Tolerates 404 while backend webhook writes record
+    ignoreErrors: [404], // Tolerates 404 while backend webhook writes record
     interval: 1000,
     backoff: 1.5,
-    maxInterval: 5000,                             // Backoff ceiling cap
-    timeout: 45000,                                // Total timeout deadline
+    maxInterval: 5000, // Backoff ceiling cap
+    timeout: 45000, // Total timeout deadline
     onTick: ({ attempt, elapsedMs }) => {
       console.log(`Checking payment (attempt ${attempt}, ${Math.round(elapsedMs / 1000)}s)...`);
     },
@@ -418,14 +474,24 @@ Queue mutations when the device is disconnected and automatically replay them se
 ```typescript
 import { createClient } from 'react-native-fetch-client';
 import { createOfflineQueue, MemoryStorageAdapter } from 'react-native-fetch-client/offline';
+import NetInfo from '@react-native-community/netinfo';
 
 const api = createClient({ baseURL: 'https://api.example.com' });
 const queue = createOfflineQueue({
   client: api,
   storage: new MemoryStorageAdapter(), // Or MMKV / AsyncStorage adapter
   onReplaySuccess: (item) => console.log(`Replayed ${item.method} ${item.url}`),
+  onPermanentFailure: (item, err) => console.error(`Failed ${item.url}:`, err),
 });
 
+// Automatically trigger replay when device regains internet connectivity
+NetInfo.addEventListener((state) => {
+  if (state.isConnected && state.isInternetReachable) {
+    queue.process();
+  }
+});
+
+// Enqueue mutation safely while offline (receives an automatic Idempotency-Key)
 await queue.enqueue({
   method: 'POST',
   url: '/sync/actions',
@@ -456,49 +522,49 @@ For in-depth explanations of individual features, see the dedicated guides in th
 
 Options passed to `createClient(config)`:
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `baseURL` / `baseUrl` | `string` | `undefined` | Base URL prepended to relative request URLs. |
-| `headers` | `HeadersInit` | `undefined` | Default HTTP headers included with all requests. |
-| `params` | `QueryParams` | `undefined` | Default query parameters merged into all requests. |
-| `timeout` | `number` | `0` | Default timeout in milliseconds (0 = no timeout). |
-| `responseType` | `ResponseType` | `'json'` | Default response parsing (`'json'`, `'text'`, `'blob'`, `'arrayBuffer'`, `'stream'`). |
-| `credentials` | `RequestCredentials` | `undefined` | Credentials mode (`'omit'`, `'same-origin'`, `'include'`). |
-| `redirect` | `RequestRedirect` | `undefined` | Redirect handling (`'follow'`, `'manual'`, `'error'`). |
-| `bearerToken` | `string \| (() => string \| Promise<string>)` | `undefined` | Static token or dynamic getter for `Authorization: Bearer <token>`. |
-| `auth` | `AuthConfig` | `undefined` | Token refresh mutex and authentication configuration. |
-| `cache` | `CacheConfig \| boolean` | `undefined` | Caching configuration (LRU, TTL, SWR, storage adapter). |
-| `dedup` | `DedupConfig \| boolean` | `undefined` | In-flight request deduplication configuration. |
-| `retry` | `Partial<RetryPolicy> \| false` | `undefined` | Retry engine configuration (attempts, backoff, jitter, status codes). |
-| `maxConcurrentRequests` | `number` | `0` | Maximum simultaneous active requests (0 = unlimited). |
-| `unwrap` | `boolean` | `false` | When true, returns `response.data` directly instead of `HttpResponse<T>`. |
-| `debug` | `boolean \| DebugLogger` | `false` | Enable console debug logging or provide a custom logger callback. |
-| `fetchImpl` | `FetchImpl` | `globalThis.fetch` | Custom Fetch transport implementation. |
-| `dispatcher` | `unknown` | `undefined` | Custom dispatcher (e.g. Undici ProxyAgent in Node.js). |
+| Option                  | Type                                          | Default            | Description                                                                           |
+| :---------------------- | :-------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------ |
+| `baseURL` / `baseUrl`   | `string`                                      | `undefined`        | Base URL prepended to relative request URLs.                                          |
+| `headers`               | `HeadersInit`                                 | `undefined`        | Default HTTP headers included with all requests.                                      |
+| `params`                | `QueryParams`                                 | `undefined`        | Default query parameters merged into all requests.                                    |
+| `timeout`               | `number`                                      | `0`                | Default timeout in milliseconds (0 = no timeout).                                     |
+| `responseType`          | `ResponseType`                                | `'json'`           | Default response parsing (`'json'`, `'text'`, `'blob'`, `'arrayBuffer'`, `'stream'`). |
+| `credentials`           | `RequestCredentials`                          | `undefined`        | Credentials mode (`'omit'`, `'same-origin'`, `'include'`).                            |
+| `redirect`              | `RequestRedirect`                             | `undefined`        | Redirect handling (`'follow'`, `'manual'`, `'error'`).                                |
+| `bearerToken`           | `string \| (() => string \| Promise<string>)` | `undefined`        | Static token or dynamic getter for `Authorization: Bearer <token>`.                   |
+| `auth`                  | `AuthConfig`                                  | `undefined`        | Token refresh mutex and authentication configuration.                                 |
+| `cache`                 | `CacheConfig \| boolean`                      | `undefined`        | Caching configuration (LRU, TTL, SWR, storage adapter).                               |
+| `dedup`                 | `DedupConfig \| boolean`                      | `undefined`        | In-flight request deduplication configuration.                                        |
+| `retry`                 | `Partial<RetryPolicy> \| false`               | `undefined`        | Retry engine configuration (attempts, backoff, jitter, status codes).                 |
+| `maxConcurrentRequests` | `number`                                      | `0`                | Maximum simultaneous active requests (0 = unlimited).                                 |
+| `unwrap`                | `boolean`                                     | `false`            | When true, returns `response.data` directly instead of `HttpResponse<T>`.             |
+| `debug`                 | `boolean \| DebugLogger`                      | `false`            | Enable console debug logging or provide a custom logger callback.                     |
+| `fetchImpl`             | `FetchImpl`                                   | `globalThis.fetch` | Custom Fetch transport implementation.                                                |
+| `dispatcher`            | `unknown`                                     | `undefined`        | Custom dispatcher (e.g. Undici ProxyAgent in Node.js).                                |
 
 ### RequestConfig
 
 Options passed to individual request calls (overrides client defaults):
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `url` | `string` | `''` | Request path or absolute URL. |
-| `method` | `HttpMethod` | `'GET'` | HTTP method. |
-| `headers` | `HeadersInit` | `undefined` | Request-specific HTTP headers. |
-| `params` | `QueryParams` | `undefined` | Query parameters serialized onto the URL. |
-| `pathParams` | `PathParams` | `undefined` | Path parameter interpolation mapping (e.g. `{ id: 42 }`). |
-| `body` | `unknown` | `undefined` | Request body payload. Objects are serialized to JSON by default. |
-| `timeout` | `number` | Inherited | Request timeout in milliseconds. |
-| `signal` | `AbortSignal` | `undefined` | WHATWG AbortSignal for request cancellation. |
-| `cancelPrevious` | `string` | `undefined` | Cancellation group key. Aborts prior in-flight requests sharing the key. |
-| `schema` | `SchemaValidator<T>` | `undefined` | Standard Schema v1 validator (Zod, Valibot, ArkType) for response verification. |
-| `formUrlEncoded` | `boolean` | `false` | Serializes body as `application/x-www-form-urlencoded`. |
-| `cache` | `RequestCacheConfig \| boolean` | Inherited | Per-request cache configuration, invalidation targets, or SWR callbacks. |
-| `dedup` | `boolean` | Inherited | Enable or disable in-flight deduplication for this request. |
-| `retry` | `Partial<RetryPolicy> \| false` | Inherited | Per-request retry policy override. |
-| `unwrap` | `boolean` | Inherited | Override response unwrapping for this request. |
-| `onDownloadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time download progress callback. |
-| `onUploadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time upload progress callback. |
+| Option               | Type                             | Default     | Description                                                                     |
+| :------------------- | :------------------------------- | :---------- | :------------------------------------------------------------------------------ |
+| `url`                | `string`                         | `''`        | Request path or absolute URL.                                                   |
+| `method`             | `HttpMethod`                     | `'GET'`     | HTTP method.                                                                    |
+| `headers`            | `HeadersInit`                    | `undefined` | Request-specific HTTP headers.                                                  |
+| `params`             | `QueryParams`                    | `undefined` | Query parameters serialized onto the URL.                                       |
+| `pathParams`         | `PathParams`                     | `undefined` | Path parameter interpolation mapping (e.g. `{ id: 42 }`).                       |
+| `body`               | `unknown`                        | `undefined` | Request body payload. Objects are serialized to JSON by default.                |
+| `timeout`            | `number`                         | Inherited   | Request timeout in milliseconds.                                                |
+| `signal`             | `AbortSignal`                    | `undefined` | WHATWG AbortSignal for request cancellation.                                    |
+| `cancelPrevious`     | `string`                         | `undefined` | Cancellation group key. Aborts prior in-flight requests sharing the key.        |
+| `schema`             | `SchemaValidator<T>`             | `undefined` | Standard Schema v1 validator (Zod, Valibot, ArkType) for response verification. |
+| `formUrlEncoded`     | `boolean`                        | `false`     | Serializes body as `application/x-www-form-urlencoded`.                         |
+| `cache`              | `RequestCacheConfig \| boolean`  | Inherited   | Per-request cache configuration, invalidation targets, or SWR callbacks.        |
+| `dedup`              | `boolean`                        | Inherited   | Enable or disable in-flight deduplication for this request.                     |
+| `retry`              | `Partial<RetryPolicy> \| false`  | Inherited   | Per-request retry policy override.                                              |
+| `unwrap`             | `boolean`                        | Inherited   | Override response unwrapping for this request.                                  |
+| `onDownloadProgress` | `(event: ProgressEvent) => void` | `undefined` | Real-time download progress callback.                                           |
+| `onUploadProgress`   | `(event: ProgressEvent) => void` | `undefined` | Real-time upload progress callback.                                             |
 
 ---
 
@@ -541,25 +607,26 @@ try {
 
 `react-native-fetch-client` follows standard HTTP client ergonomics, making migration from Axios seamless:
 
-| Axios Syntax | `react-native-fetch-client` Syntax | Notes |
-| :--- | :--- | :--- |
-| `import axios from 'axios'` | `import client, { createClient } from 'react-native-fetch-client'` | Ready-to-use default instance or factory |
-| `axios.get(url, config)` | `client.get(url, config)` | 1:1 syntax parity |
-| `axios.post(url, data, config)` | `client.post(url, data, config)` | 1:1 syntax parity |
-| `axios.delete(url, config)` | `client.delete(url, config)` *(or `client.del`)* | Same method with `.del()` shorthand |
-| `axios.create({ baseURL })` | `createClient({ baseURL })` *(or `client.create()`)* | Both `baseURL` and `baseUrl` supported |
-| `res.data`, `res.status`, `res.headers` | `res.data`, `res.status`, `res.headers` | Exact response envelope shape |
-| `axios.interceptors.request.use(...)` | `api.interceptors.request.use(...)` | `.use()` and `.eject()` supported |
-| `axios.isAxiosError(err)` | `isHttpError(err)` or `isFetchNativeError(err)` | Type-safe error discriminator guards |
-| `axios-retry` (external plugin) | `createClient({ retry: { attempts: 3 } })` | Native exponential backoff with jitter |
-| `axios-cache-interceptor` (external plugin) | `createClient({ cache: { enabled: true } })` | Native LRU, SWR & RFC 7234 validation |
-| `axios-mock-adapter` (external plugin) | `import { createMockAdapter } from 'react-native-fetch-client/mock'` | Native declarative mock adapter |
-| Cancel token / `AbortController` | Standard WHATWG `signal: controller.signal` | Standard WHATWG cancellation |
+| Axios Syntax                                | `react-native-fetch-client` Syntax                                   | Notes                                    |
+| :------------------------------------------ | :------------------------------------------------------------------- | :--------------------------------------- |
+| `import axios from 'axios'`                 | `import client, { createClient } from 'react-native-fetch-client'`   | Ready-to-use default instance or factory |
+| `axios.get(url, config)`                    | `client.get(url, config)`                                            | 1:1 syntax parity                        |
+| `axios.post(url, data, config)`             | `client.post(url, data, config)`                                     | 1:1 syntax parity                        |
+| `axios.delete(url, config)`                 | `client.delete(url, config)` _(or `client.del`)_                     | Same method with `.del()` shorthand      |
+| `axios.create({ baseURL })`                 | `createClient({ baseURL })` _(or `client.create()`)_                 | Both `baseURL` and `baseUrl` supported   |
+| `res.data`, `res.status`, `res.headers`     | `res.data`, `res.status`, `res.headers`                              | Exact response envelope shape            |
+| `axios.interceptors.request.use(...)`       | `api.interceptors.request.use(...)`                                  | `.use()` and `.eject()` supported        |
+| `axios.isAxiosError(err)`                   | `isHttpError(err)` or `isFetchNativeError(err)`                      | Type-safe error discriminator guards     |
+| `axios-retry` (external plugin)             | `createClient({ retry: { attempts: 3 } })`                           | Native exponential backoff with jitter   |
+| `axios-cache-interceptor` (external plugin) | `createClient({ cache: { enabled: true } })`                         | Native LRU, SWR & RFC 7234 validation    |
+| `axios-mock-adapter` (external plugin)      | `import { createMockAdapter } from 'react-native-fetch-client/mock'` | Native declarative mock adapter          |
+| Cancel token / `AbortController`            | Standard WHATWG `signal: controller.signal`                          | Standard WHATWG cancellation             |
 
 #### Key Differences to Note:
-* **Error Representation**: Instead of checking `error.response?.data`, catch errors using `isHttpError(err)` where `err.status` and `err.data` are strongly typed.
-* **Request Body in Config**: When calling the generic `api.request({ ... })`, pass payload data as `body: data` (following Fetch standards) rather than `data: data`.
-* **Subpaths for Testing & Offline**: Mock utilities and offline queues are imported from dedicated subpaths (`react-native-fetch-client/mock` and `react-native-fetch-client/offline`) to maintain a 0 KB overhead for production bundles.
+
+- **Error Representation**: Instead of checking `error.response?.data`, catch errors using `isHttpError(err)` where `err.status` and `err.data` are strongly typed.
+- **Request Body in Config**: When calling the generic `api.request({ ... })`, pass payload data as `body: data` (following Fetch standards) rather than `data: data`.
+- **Subpaths for Testing & Offline**: Mock utilities and offline queues are imported from dedicated subpaths (`react-native-fetch-client/mock` and `react-native-fetch-client/offline`) to maintain a 0 KB overhead for production bundles.
 
 ---
 

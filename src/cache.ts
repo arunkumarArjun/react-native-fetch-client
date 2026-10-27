@@ -274,11 +274,21 @@ export class CacheManager implements ResponseCache {
       const entries: Array<[string, SerializedCacheEntry]> = [];
       for (const [key, entry] of this.store.entries()) {
         if (entry.expiresAt > now) {
+          const sanitizedHeaders: Record<string, string> = {};
+          if (entry.response.headers) {
+            for (const [hKey, hVal] of Object.entries(entry.response.headers)) {
+              const lk = hKey.toLowerCase();
+              if (lk !== 'set-cookie' && lk !== 'set-cookie2' && lk !== 'authorization') {
+                sanitizedHeaders[lk] = hVal;
+              }
+            }
+          }
+
           const serialized: SerializedCacheEntry = {
             data: entry.response.data,
             status: entry.response.status,
             statusText: entry.response.statusText,
-            headers: entry.response.headers,
+            headers: sanitizedHeaders,
             expiresAt: entry.expiresAt,
           };
           if (entry.etag !== undefined) serialized.etag = entry.etag;

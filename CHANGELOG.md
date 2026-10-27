@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-27
+
+### Security & VAPT Hardening
+
+- **Cross-Origin Credential Isolation (SSRF & Token Leak Guard)**: Outgoing credentials (`bearerToken` and `authManager`) are now strictly restricted to the configured `baseURL` origin. Target URLs calling external/third-party domains omit credentials unless explicitly enabled via `allowCrossOrigin: true`.
+- **401 Cross-Origin Isolation**: Untrusted third-party endpoints returning 401 Unauthorized do not trigger the client's token refresh mutex.
+- **Persistent Storage Sanitization (CWE-312)**: Response headers stored in persistent cache adapters (`MMKV`, `AsyncStorage`) automatically strip `Set-Cookie`, `Set-Cookie2`, and `Authorization`, eliminating plaintext session cookies on local device storage.
+- **Offline Queue Plaintext Token Prevention**: Queued offline requests strip static `Authorization` headers prior to serialization, allowing the client to dynamically evaluate and attach the latest active session token at replay time.
+- **Sensitive Header Redaction in Error Objects (CWE-532)**: `Cookie`, `Set-Cookie`, `Proxy-Authorization`, `X-Api-Key`, and `X-Auth-Token` are now automatically redacted to `'[REDACTED]'` alongside `Authorization` in debug logs and error objects.
+
+### Performance & Hermes Optimization
+
+- **Fast-Path Header Merging**: `mergeHeaders` now fast-paths plain JavaScript objects, avoiding expensive native C++ `new Headers()` JNI allocations in React Native Hermes on every request.
+- **Production Build Minification**: Enabled `minify: true` in `tsup`, reducing the core distribution bundle by **57%** (from 89.7 KB down to 38.5 KB; 12.8 KB min+gzip) while preserving full sourcemaps and TypeScript declaration files.
+
+### Documentation & Guides
+
+- Added end-to-end **TanStack Query (React Query)** pairing guide and runnable recipe (`examples/04-tanstack-query.ts`).
+- Added **NetInfo** reconnection event listener recipe for automatic offline queue replay (`@react-native-community/netinfo`).
+- Added CommonJS (`require`) and TypeScript `moduleResolution` interop instructions.
+
+---
+
 ## [0.3.0] - 2026-10-26
 
 ### Breaking Changes & Architecture Refactor

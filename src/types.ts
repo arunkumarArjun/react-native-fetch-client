@@ -354,8 +354,9 @@ export interface RequestConfig {
   /**
    * Request-level authentication override.
    * Set to `false` or `{ skip: true }` to bypass token attachment and refresh for this request.
+   * Set `{ allowCrossOrigin: true }` to permit sending credentials to cross-origin targets.
    */
-  auth?: boolean | { skip?: boolean };
+  auth?: boolean | { skip?: boolean; allowCrossOrigin?: boolean };
   /**
    * Static or dynamic Bearer token string or async getter function.
    * Automatically attaches `Authorization: Bearer <token>` if no Authorization header exists.
@@ -658,6 +659,11 @@ export interface AuthConfig {
    * before dispatching the request to avoid an unnecessary 401 roundtrip.
    */
   isExpired?: () => boolean | Promise<boolean>;
+  /**
+   * If true, permits attaching credentials to cross-origin URLs that differ from `baseURL`.
+   * Default: false (credentials are omitted when targeting a different origin than `baseURL`).
+   */
+  allowCrossOrigin?: boolean;
 }
 
 // ---------------------------------------------------------------------------

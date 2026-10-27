@@ -68,6 +68,23 @@ export function isAbsoluteUrl(url: string): boolean {
 }
 
 /**
+ * Determines whether two URLs share the exact same protocol, hostname, and port.
+ *
+ * @param url1 First URL string to compare.
+ * @param url2 Second URL string to compare.
+ * @returns True if both URLs share the same origin.
+ */
+export function isSameOrigin(url1: string, url2: string): boolean {
+  try {
+    const origin1 = new URL(url1, 'http://localhost').origin;
+    const origin2 = new URL(url2, 'http://localhost').origin;
+    return origin1.toLowerCase() === origin2.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Strips leading forward slashes without regex backtracking.
  */
 function trimLeadingSlashes(str: string): string {

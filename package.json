@@ -1,6 +1,6 @@
 {
   "name": "react-native-fetch-client",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A lightweight, Fetch-native HTTP client for TypeScript, React Native, Expo, browsers, and Node.js",
   "author": "Arunkumar Arjunan",
   "license": "MIT",
@@ -73,8 +73,12 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "mock": ["./dist/mock.d.ts"],
-      "offline": ["./dist/offline.d.ts"]
+      "mock": [
+        "./dist/mock.d.ts"
+      ],
+      "offline": [
+        "./dist/offline.d.ts"
+      ]
     }
   },
   "files": [

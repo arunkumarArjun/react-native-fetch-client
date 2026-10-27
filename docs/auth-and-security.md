@@ -9,6 +9,7 @@ This guide outlines authentication handling, token rotation, security headers, a
 Attach authorization tokens without writing manual request interceptors.
 
 ### Static Token String
+
 ```typescript
 import { createClient } from 'react-native-fetch-client';
 
@@ -22,6 +23,7 @@ const api = createClient({
 ```
 
 ### Dynamic / Async Token Getter
+
 When tokens are stored in secure device storage (e.g. `expo-secure-store`, `react-native-keychain`), supply an async function evaluated before each request:
 
 ```typescript
@@ -40,6 +42,7 @@ const api = createClient({
 ## 2. Single-Flight 401 Token Refresh Mutex
 
 ### Overview
+
 When an access token expires, concurrent requests (such as initial dashboard or tab queries) encounter 401 responses simultaneously. Without synchronization, each failed request triggers an independent `/auth/refresh` call. If the backend rotates refresh tokens on each call, subsequent refresh calls fail and invalidate the user session.
 
 `react-native-fetch-client` queues concurrent requests behind an asynchronous mutex, ensuring only a single refresh request is dispatched:
@@ -170,10 +173,43 @@ const api = createClient({
 
 ## 3. Security and Data Protection
 
-### Automatic Credential Redaction
-When debug logging is enabled (`debug: true` or custom logger), authorization headers (`Authorization: Bearer [REDACTED]`) and cookies are redacted automatically to prevent sensitive tokens from leaking into system logs or external monitoring platforms.
+### Cross-Origin Credential Isolation (SSRF & Token Leak Guard)
 
-### Authenticated Cache Isolation
+To prevent accidental credential leakage (such as when an application fetches assets or webhooks from external URLs), outgoing authentication headers (`bearerToken` and `authManager`) are automatically restricted to the configured `baseURL` origin.
+
+If a request targets a different origin (e.g. `api.get('https://external-cdn.com/asset.json')`), authorization headers are automatically omitted. Furthermore, 401 responses from untrusted cross-origin targets never trigger the client's token refresh mutex.
+
+If cross-origin credentials are intentionally required for trusted external endpoints, opt in explicitly:
+
+```typescript
+// 1. Opt in globally at client creation:
+const api = createClient({
+  baseURL: 'https://api.example.com',
+  auth: {
+    getToken: async () => await getSessionToken(),
+    allowCrossOrigin: true,
+  },
+});
+
+// 2. Or opt in for a specific request:
+const res = await api.get('https://trusted-partner.com/api', {
+  auth: { allowCrossOrigin: true },
+});
+```
+
+### Automatic Sensitive Header Redaction (CWE-532)
+
+To prevent credentials from leaking into crash reporting tools (Sentry, Datadog), system logs (`adb logcat`, Console), or error objects:
+
+- `Authorization`
+- `Cookie` and `Set-Cookie`
+- `Proxy-Authorization`
+- `X-Api-Key` and `X-Auth-Token`
+
+are automatically masked to `'[REDACTED]'` in all internal debug logs and `FetchNativeError.config.headers` objects.
+
+### Authenticated Cache Isolation & Disk Sanitization (CWE-312)
+
 Requests containing an `Authorization` header are excluded from caching by default (`allowAuthenticated: false`). This prevents user-specific data from persisting across sessions or being served to a different user after logout.
 
 When authenticated caching is explicitly enabled:
@@ -188,4 +224,8 @@ const api = createClient({
 });
 ```
 
-Cache keys are automatically partitioned by authorization tokens: `GET:/profile|auth:Bearer_tokenA` is stored separately and cannot be retrieved by `Bearer_tokenB`.
+Cache keys are automatically partitioned by an opaque SHA/hash of the authorization token (`GET:/profile|auth:hash123`) so raw tokens never appear in cache keys. Furthermore, when persistent cache entries are serialized to disk storage (MMKV or AsyncStorage), sensitive response headers (`Set-Cookie`, `Set-Cookie2`, and `Authorization`) are automatically stripped, ensuring plaintext session cookies are never written to device storage.
+
+### Offline Queue Token Protection
+
+Requests enqueued in the offline mutation queue (`react-native-fetch-client/offline`) automatically strip static `Authorization` headers before persisting to disk. When connectivity is restored, the client's `authManager` dynamically evaluates and attaches the active session's latest token at replay time, preventing expired token replay or cross-account leakage after logout.

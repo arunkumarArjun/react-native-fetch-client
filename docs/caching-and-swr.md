@@ -9,14 +9,14 @@ This guide explains the dual-tier caching engine in **`react-native-fetch-client
 ```mermaid
 graph TD
     Request["Incoming GET Request"] --> MemoryCheck{"In-Memory LRU Cache?"}
-    
+
     MemoryCheck -- "Fresh Hit" --> ReturnHit["Return Cache Instantly (0ms)<br/>cached: true, stale: false"]
-    
+
     MemoryCheck -- "Stale Hit & SWR" --> ServeSWR["Return Stale Instantly (0ms)<br/>cached: true, stale: true"]
     ServeSWR -.-> QuietRevalidate["Quiet Background Network Fetch<br/>Notifies onRevalidated(fresh)"]
 
     MemoryCheck -- "Miss / Stale (Cache-First)" --> ETagCheck{"Has Stored ETag?"}
-    
+
     ETagCheck -- "Yes" --> SendConditional["Send with If-None-Match: etag"]
     ETagCheck -- "No" --> SendFull["Send Normal Network Request"]
 
@@ -43,7 +43,7 @@ const api = createClient({
   cache: {
     enabled: true,
     defaultTtl: 60_000, // 60 seconds TTL
-    maxSize: 100,       // Max 100 entries before LRU eviction
+    maxSize: 100, // Max 100 entries before LRU eviction
     methods: ['GET', 'HEAD'], // Safe methods only
     allowAuthenticated: false, // Disallow caching if Authorization header exists
   },
@@ -51,6 +51,7 @@ const api = createClient({
 ```
 
 ### Cache Key Partitioning
+
 Cache keys are deterministically generated from:
 `METHOD:PATHNAME?SORTED_QUERY_PARAMS`
 
@@ -64,6 +65,7 @@ When `allowAuthenticated: true` is configured, the cache key partitions per-user
 In mobile applications, in-memory caches are wiped when the operating system kills the background process. `react-native-fetch-client` supports pluggable key-value storage adapters so responses survive cold app boots.
 
 ### Pluggable Interface
+
 ```typescript
 export interface CacheStorageAdapter {
   getItem(key: string): Promise<string | null> | string | null;
@@ -74,6 +76,7 @@ export interface CacheStorageAdapter {
 ```
 
 ### React Native MMKV Adapter (Recommended for Mobile)
+
 ```typescript
 import { MMKV } from 'react-native-mmkv';
 import { createClient, type CacheStorageAdapter } from 'react-native-fetch-client';
@@ -99,6 +102,7 @@ const api = createClient({
 ```
 
 ### AsyncStorage Adapter
+
 ```typescript
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type CacheStorageAdapter } from 'react-native-fetch-client';
@@ -112,6 +116,7 @@ const asyncStorageAdapter: CacheStorageAdapter = {
 ```
 
 ### Hydration & Cold Boot
+
 When `storage` is passed to `cache`, the client automatically calls `api.cache.hydrate()` in the background to restore valid, non-expired cache entries into memory:
 
 ```typescript
@@ -122,6 +127,10 @@ await api.cache.hydrate();
 const profile = await api.get('/user/profile');
 ```
 
+### Storage Sanitization (CWE-312)
+
+When serializing cached responses to persistent storage (`setItem`), sensitive response headers such as `Set-Cookie`, `Set-Cookie2`, and `Authorization` are automatically stripped before writing to disk, ensuring that unencrypted storage files (e.g. AsyncStorage or MMKV) never retain plaintext session cookies.
+
 ---
 
 ## 3. Stale-While-Revalidate (SWR Strategy)
@@ -129,6 +138,7 @@ const profile = await api.get('/user/profile');
 The SWR strategy renders cached data **instantly (0ms latency)**, while silently fetching the latest version from the server in the background:
 
 ### Global Configuration
+
 ```typescript
 const api = createClient({
   baseURL: 'https://api.example.com',
@@ -140,6 +150,7 @@ const api = createClient({
 ```
 
 ### Usage with Revalidation Callback
+
 ```typescript
 // First call: Warm up cache
 await api.get('/posts/1');
@@ -160,7 +171,7 @@ const response = await api.get<Post>('/posts/1', {
 });
 
 console.log(response.cached); // true
-console.log(response.stale);  // true (served instantly!)
+console.log(response.stale); // true (served instantly!)
 ```
 
 ---
@@ -206,17 +217,22 @@ await api.cache.persist();
 ```
 
 ### Automatic Mutation Invalidation
+
 When an update or deletion occurs via `POST`, `PUT`, `PATCH`, or `DELETE`, the client automatically invalidates related cached GET routes for the matching resource path to prevent stale data displays.
 
 ### Declarative Invalidation (`invalidate`)
+
 Updating a single resource (e.g. `PUT /users/42`) won't automatically know to invalidate collection queries (like `/users` or `/users?page=1`). Use `cache.invalidate` to declare related routes to purge upon mutation success:
 
 ```typescript
 // Mutate single entity and purge associated lists from cache:
-await api.put('/users/42', { name: 'Alice' }, {
-  cache: {
-    invalidate: ['/users', '/dashboard/members'], // Accepts exact path strings or RegExp patterns
+await api.put(
+  '/users/42',
+  { name: 'Alice' },
+  {
+    cache: {
+      invalidate: ['/users', '/dashboard/members'], // Accepts exact path strings or RegExp patterns
+    },
   },
-});
+);
 ```
-

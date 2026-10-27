@@ -168,6 +168,9 @@ export function createOfflineQueue(config: OfflineQueueConfig): OfflineQueue {
       normHeaders[idempotencyHeader.toLowerCase()] = assignedIdempotencyKey;
     }
 
+    // Do not store static Authorization headers on disk; client.auth will attach the active token at replay time
+    delete normHeaders['authorization'];
+
     const queuedItem: QueuedRequest = {
       id,
       url,

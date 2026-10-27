@@ -10,9 +10,10 @@ export default defineConfig({
   dts: true,
   sourcemap: true, // enable source maps for debuggability and Socket.dev source transparency
   clean: true, // wipe dist/ before each build
-  splitting: false,        // single-file output per format for predictable imports
+  splitting: false, // single-file output per format for predictable imports
   treeshake: true,
   cjsInterop: true,
+  minify: true,
   tsconfig: 'tsconfig.build.json',
   outDir: 'dist',
   // Ensure CJS and ESM get distinct file extensions so Node can identify them

@@ -10,7 +10,7 @@ import {
   AuthRefreshError,
   createAbortError,
 } from './errors.js';
-import { buildUrl } from './url.js';
+import { buildUrl, isAbsoluteUrl, isSameOrigin } from './url.js';
 import { mergeHeaders } from './headers.js';
 import { serializeBody } from './serialize.js';
 import { parseResponse } from './parse.js';
@@ -287,17 +287,32 @@ async function executeRequestInternal<T = unknown>(
 
   const baseHeaders = mergeHeaders(clientConfig.headers, config.headers);
 
-  // 3. Bearer Token preset auto-injection
-  const bearerSource = config.bearerToken ?? clientConfig.bearerToken;
-  if (bearerSource && !baseHeaders['authorization'] && !baseHeaders['Authorization']) {
-    const tokenVal = typeof bearerSource === 'function' ? await bearerSource() : bearerSource;
-    if (tokenVal) {
-      baseHeaders['authorization'] = `Bearer ${tokenVal}`;
-    }
-  }
+  // 3. Bearer Token preset auto-injection & AuthManager (with cross-origin protection)
+  const allowCrossOrigin =
+    (typeof config.auth === 'object' && config.auth?.allowCrossOrigin) ||
+    Boolean(clientConfig.auth?.allowCrossOrigin);
 
-  if (authManager) {
-    await authManager.attachToken(baseHeaders, resolvedUrl, config.auth, config._isRefreshed);
+  const isCrossOrigin = Boolean(
+    baseURL &&
+    isAbsoluteUrl(baseURL) &&
+    isAbsoluteUrl(resolvedUrl) &&
+    !isSameOrigin(baseURL, resolvedUrl),
+  );
+
+  const shouldAttachAuth = !isCrossOrigin || allowCrossOrigin;
+
+  if (shouldAttachAuth) {
+    const bearerSource = config.bearerToken ?? clientConfig.bearerToken;
+    if (bearerSource && !baseHeaders['authorization'] && !baseHeaders['Authorization']) {
+      const tokenVal = typeof bearerSource === 'function' ? await bearerSource() : bearerSource;
+      if (tokenVal) {
+        baseHeaders['authorization'] = `Bearer ${tokenVal}`;
+      }
+    }
+
+    if (authManager) {
+      await authManager.attachToken(baseHeaders, resolvedUrl, config.auth, config._isRefreshed);
+    }
   }
 
   const responseType = config.responseType ?? clientConfig.responseType ?? 'json';
@@ -479,12 +494,22 @@ async function executeRequestInternal<T = unknown>(
     resolvedConfig.credentials = credentials;
   }
 
-  const authHeaderKey = authManager ? authManager.getHeaderName() : 'authorization';
+  const SENSITIVE_HEADERS = [
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'proxy-authorization',
+    'x-api-key',
+    'x-auth-token',
+  ];
+  const authHeaderKey = authManager ? authManager.getHeaderName().toLowerCase() : 'authorization';
   if (resolvedConfig.headers[authHeaderKey]) {
     resolvedConfig.headers[authHeaderKey] = '[REDACTED]';
   }
-  if (resolvedConfig.headers['authorization']) {
-    resolvedConfig.headers['authorization'] = '[REDACTED]';
+  for (const key of Object.keys(resolvedConfig.headers)) {
+    if (SENSITIVE_HEADERS.includes(key.toLowerCase())) {
+      resolvedConfig.headers[key] = '[REDACTED]';
+    }
   }
 
   let totalTimerId: ReturnType<typeof setTimeout> | undefined;
@@ -701,6 +726,7 @@ async function executeRequestInternal<T = unknown>(
         lastError = err;
 
         if (
+          shouldAttachAuth &&
           authManager &&
           authManager.isEligibleForRefresh(err, resolvedUrl, config._isRefreshed, config.auth)
         ) {

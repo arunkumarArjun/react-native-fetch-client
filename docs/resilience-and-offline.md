@@ -9,29 +9,32 @@ This guide explores the enterprise reliability and offline mechanics in **`react
 Network requests on mobile devices frequently encounter transient connection drops or rate limits (`429 Too Many Requests`). The built-in retry engine automatically handles temporary network turbulence.
 
 ### Configuration
+
 ```typescript
 import { createClient } from 'react-native-fetch-client';
 
 const api = createClient({
   baseURL: 'https://api.example.com',
   retry: {
-    attempts: 3,                  // Maximum 3 retries after initial failure
-    backoff: 'exponential',        // 'exponential' or 'linear'
-    delay: 1000,                  // Base delay in ms (1s)
-    maxDelay: 15_000,             // Cap maximum wait to 15s
-    jitter: true,                 // Adds random offset to avoid thundering herd
+    attempts: 3, // Maximum 3 retries after initial failure
+    backoff: 'exponential', // 'exponential' or 'linear'
+    delay: 1000, // Base delay in ms (1s)
+    maxDelay: 15_000, // Cap maximum wait to 15s
+    jitter: true, // Adds random offset to avoid thundering herd
     retryOn: [429, 500, 502, 503, 504], // Status codes eligible for retry
     safeMethods: ['GET', 'HEAD', 'PUT', 'DELETE'], // Safe idempotent methods
-    respectRetryAfter: true,      // Respects Retry-After header sent by server
+    respectRetryAfter: true, // Respects Retry-After header sent by server
   },
 });
 ```
 
 ### Exponential Backoff & Jitter
-* **Without Jitter**: Requests 1, 2, and 3 wait `1000ms`, `2000ms`, `4000ms`. If 10,000 mobile clients disconnect at the same time, they all retry simultaneously, crashing the server.
-* **With Jitter (`jitter: true`)**: A random multiplier (`delay * 2^attempt * (0.5 + Math.random() * 0.5)`) is applied to distribute server traffic smoothly.
+
+- **Without Jitter**: Requests 1, 2, and 3 wait `1000ms`, `2000ms`, `4000ms`. If 10,000 mobile clients disconnect at the same time, they all retry simultaneously, crashing the server.
+- **With Jitter (`jitter: true`)**: A random multiplier (`delay * 2^attempt * (0.5 + Math.random() * 0.5)`) is applied to distribute server traffic smoothly.
 
 ### Custom Retry Predicate
+
 ```typescript
 const customRetry = await api.get('/orders', {
   retry: {
@@ -120,12 +123,10 @@ flowchart TD
 ```
 
 ### Implementation Guide
+
 ```typescript
 import { createClient } from 'react-native-fetch-client';
-import {
-  createOfflineQueue,
-  type OfflineStorageAdapter,
-} from 'react-native-fetch-client/offline';
+import { createOfflineQueue, type OfflineStorageAdapter } from 'react-native-fetch-client/offline';
 import { MMKV } from 'react-native-mmkv';
 
 const storage = new MMKV({ id: 'offline-queue' });
@@ -157,12 +158,22 @@ const item = await queue.enqueue({
 });
 console.log(`Enqueued with ID: ${item.id}`);
 
-// 2. Process queue when device comes back online (e.g. NetInfo listener)
-const summary = await queue.process();
-console.log(`Replay complete: ${summary.succeeded} succeeded, ${summary.remaining} remaining.`);
+// 2. Wire automatic replay to NetInfo reconnection:
+import NetInfo from '@react-native-community/netinfo';
+
+NetInfo.addEventListener((state) => {
+  if (state.isConnected && state.isInternetReachable) {
+    queue.process().then((summary) => {
+      console.log(
+        `Replay complete: ${summary.succeeded} succeeded, ${summary.remaining} remaining.`,
+      );
+    });
+  }
+});
 ```
 
 ### Automatic Idempotency Keys
+
 Every enqueued request automatically receives an RFC-compliant `Idempotency-Key` header (`uuid-v4` format). Even if an offline replay is interrupted by a brief disconnect, the server can safely deduplicate the request without creating duplicate records.
 
 ---
@@ -172,6 +183,7 @@ Every enqueued request automatically receives an RFC-compliant `Idempotency-Key`
 Long-running backend operations (such as payment verification, export jobs, or AI inference tasks) often require polling an endpoint until a terminal state is reached. Rather than managing manual `setInterval` timers, cleanup handles, and error counters, `api.poll()` wraps polling in a resilient, declarative method.
 
 ### Example: Polling an Export Job
+
 ```typescript
 import { createClient } from 'react-native-fetch-client';
 
@@ -185,10 +197,10 @@ interface JobStatus {
 
 try {
   const result = await api.poll<JobStatus>('/jobs/exp_9981', {
-    interval: 1500,     // Poll every 1.5 seconds
-    timeout: 30_000,    // Fail if not resolved in 30 seconds
-    backoff: 'linear',  // 'fixed' | 'linear' | 'exponential'
-    maxInterval: 5000,  // Cap maximum polling delay
+    interval: 1500, // Poll every 1.5 seconds
+    timeout: 30_000, // Fail if not resolved in 30 seconds
+    backoff: 'linear', // 'fixed' | 'linear' | 'exponential'
+    maxInterval: 5000, // Cap maximum polling delay
     until: (res) => res.data.status === 'completed' || res.data.status === 'failed',
   });
 
@@ -199,7 +211,9 @@ try {
   }
 } catch (err) {
   if (isTimeoutError(err)) {
-    console.warn('Polling exceeded 30 seconds without reaching terminal status (hanging requests aborted).');
+    console.warn(
+      'Polling exceeded 30 seconds without reaching terminal status (hanging requests aborted).',
+    );
   } else if (isCancelError(err)) {
     console.warn('Polling was cancelled by caller signal.');
   }
@@ -211,13 +225,11 @@ try {
 
 ### Polling Options Reference
 
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `interval` | `number` | `1000` | Delay in milliseconds between consecutive poll attempts |
-| `timeout` | `number` | `30000` | Maximum total duration in milliseconds before rejecting with `TimeoutError` |
-| `until` | `(response: HttpResponse<T>) => boolean` | *(required)* | Predicate function returning `true` when polling should finish successfully |
-| `backoff` | `'fixed' \| 'linear' \| 'exponential'` | `'fixed'` | Growth rate applied to `interval` across consecutive poll attempts |
-| `maxInterval` | `number` | `10000` | Upper ceiling limit on polling interval delay |
-| `signal` | `AbortSignal` | `undefined` | Optional cancellation signal to abort polling prematurely |
-
-
+| Option        | Type                                     | Default      | Description                                                                 |
+| :------------ | :--------------------------------------- | :----------- | :-------------------------------------------------------------------------- |
+| `interval`    | `number`                                 | `1000`       | Delay in milliseconds between consecutive poll attempts                     |
+| `timeout`     | `number`                                 | `30000`      | Maximum total duration in milliseconds before rejecting with `TimeoutError` |
+| `until`       | `(response: HttpResponse<T>) => boolean` | _(required)_ | Predicate function returning `true` when polling should finish successfully |
+| `backoff`     | `'fixed' \| 'linear' \| 'exponential'`   | `'fixed'`    | Growth rate applied to `interval` across consecutive poll attempts          |
+| `maxInterval` | `number`                                 | `10000`      | Upper ceiling limit on polling interval delay                               |
+| `signal`      | `AbortSignal`                            | `undefined`  | Optional cancellation signal to abort polling prematurely                   |

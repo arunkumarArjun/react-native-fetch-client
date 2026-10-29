@@ -3,6 +3,8 @@
 A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across React Native, Expo, web browsers, and Node.js.
 
 [![npm version](https://img.shields.io/npm/v/react-native-fetch-client.svg)](https://www.npmjs.com/package/react-native-fetch-client)
+[![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
+[![Socket Security](https://badge.socket.dev/npm/package/react-native-fetch-client)](https://socket.dev/npm/package/react-native-fetch-client)
 [![Bundle Size](https://img.shields.io/badge/bundle%20size-12.8%20KB%20min%2Bgzip-brightgreen.svg)](https://bundlephobia.com/package/react-native-fetch-client)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
 [![Tests](https://img.shields.io/badge/tests-299%20passed-brightgreen.svg)](test)

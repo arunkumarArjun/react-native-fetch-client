@@ -13,7 +13,7 @@ export default defineConfig({
   splitting: false, // single-file output per format for predictable imports
   treeshake: true,
   cjsInterop: true,
-  minify: true,
+  minify: false, // Distribute clean transpiled code; consumer bundlers (Metro/Webpack/Vite) handle minification
   tsconfig: 'tsconfig.build.json',
   outDir: 'dist',
   // Ensure CJS and ESM get distinct file extensions so Node can identify them

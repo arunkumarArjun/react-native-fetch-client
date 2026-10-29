@@ -236,3 +236,42 @@ await api.put(
   },
 );
 ```
+
+---
+
+## 6. Non-Cacheable & Sensitive Endpoints (Payments, Orders & Live Polling)
+
+Mission-critical transactions (such as payment status verification, checkout workflows, wallet balances, and OTP checks) must **never** serve cached or stale data. Serving a stale response for a payment check can cause duplicate debits or false cancellations.
+
+### Built-in Guardrails
+1. **Unsafe Methods are Never Cached**: Requests using `POST`, `PUT`, `PATCH`, or `DELETE` strictly bypass the cache 100% of the time.
+2. **Authenticated Isolation**: By default (`allowAuthenticated: false`), any request with an `Authorization` header is excluded from cache storage.
+
+### Explicit Per-Request Cache Bypass
+For `GET` payment checks or live status queries, explicitly disable both cache and in-flight deduplication:
+
+```typescript
+const paymentStatus = await api.get(`/payments/${txnId}/status`, {
+  cache: false, // 🛑 Bypasses cache completely — guarantees fresh server data
+  dedup: false, // 🛑 Bypasses in-flight dedup — ensures every attempt reaches the wire
+});
+```
+
+### Polling Payment Status with `api.poll()`
+When waiting for asynchronous payment confirmation (e.g. 3D-Secure, UPI, Stripe webhooks), combine `api.poll()` with fresh request policies:
+
+```typescript
+const result = await api.poll<{ status: 'PENDING' | 'SUCCESS' | 'FAILED' }>(
+  `/payments/${txnId}/status`,
+  {
+    interval: 2000, // Poll every 2 seconds
+    timeout: 60000, // Stop after 60 seconds
+    validate: (res) => res.data.status === 'SUCCESS' || res.data.status === 'FAILED',
+    requestConfig: {
+      cache: false, // Force fresh network check on every attempt
+      dedup: false,
+    },
+  },
+);
+```
+

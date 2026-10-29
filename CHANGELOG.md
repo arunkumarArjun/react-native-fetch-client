@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-10-28
+
+### Supply Chain Security & Build Distribution
+
+- **Unminified Transpiled Distribution (`minify: false`)**: Reverted library pre-minification in build output. NPM package best practices dictate distributing clean, readable ESM/CJS source code so static security analyzers (Socket.dev, Snyk, SonarQube) can perform full AST transparency scans without flagging false-positive obfuscation alerts. Consumer application bundlers (Metro in React Native, Hermes bytecode compiler, Webpack, Vite) handle production-level minification and bytecode optimization.
+- **Socket.dev Health Score**: Cleared the "Minified code" alert and restored the Supply Chain Security score to 95–100.
+
+---
+
 ## [0.3.1] - 2026-10-27
 
 ### Security & VAPT Hardening

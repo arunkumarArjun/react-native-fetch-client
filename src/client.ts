@@ -597,10 +597,13 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         ...options,
       }),
     waitFor,
-    paginate: createPaginateHelper({
-      get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
-        request<T>({ ...reqConfig, url, method: 'GET' }),
-    }),
+    paginate: createPaginateHelper(
+      {
+        get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
+          request<T>({ ...reqConfig, url, method: 'GET' }),
+      },
+      clientConfig.baseURL,
+    ),
     cache: cacheManager,
     interceptors: {
       request: requestInterceptors,

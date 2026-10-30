@@ -158,7 +158,11 @@ export function createPaginateHelper(
           );
         }
         currentUrl = nextCandidateUrl;
-      } else if (cfg.getNextUrl || strategy === 'linkHeader' || (!cfg.type && res.headers['link'])) {
+      } else if (
+        cfg.getNextUrl ||
+        strategy === 'linkHeader' ||
+        (!cfg.type && res.headers['link'])
+      ) {
         currentUrl = null;
       } else if (strategy === 'cursor') {
         if (cfg.getNextCursor) {

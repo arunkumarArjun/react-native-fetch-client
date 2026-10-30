@@ -293,8 +293,7 @@ async function executeRequestInternal<T = unknown>(
     Boolean(clientConfig.auth?.allowCrossOrigin);
 
   const isRequestLevelAuth =
-    config.bearerToken !== undefined ||
-    (typeof config.auth === 'object' && config.auth !== null);
+    config.bearerToken !== undefined || (typeof config.auth === 'object' && config.auth !== null);
 
   let isCrossOrigin = false;
   if (isAbsoluteUrl(resolvedUrl)) {
@@ -306,7 +305,9 @@ async function executeRequestInternal<T = unknown>(
         isCrossOrigin = !isSameOrigin(trustedOrigin, resolvedUrl);
       } else if (!isRequestLevelAuth) {
         try {
-          (clientConfig as { _trustedOrigin?: string })._trustedOrigin = new URL(resolvedUrl).origin;
+          (clientConfig as { _trustedOrigin?: string })._trustedOrigin = new URL(
+            resolvedUrl,
+          ).origin;
         } catch {
           // Ignore URL parse error
         }

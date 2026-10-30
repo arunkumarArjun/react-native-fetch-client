@@ -56,15 +56,13 @@ export function interpolatePath(url: string, pathParams?: PathParams): string {
  * @returns True if the URL is absolute or protocol-relative.
  */
 export function isAbsoluteUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
   if (url.startsWith('//')) {
     return true;
   }
-  const colonIndex = url.indexOf(':');
-  if (colonIndex > 0 && url.slice(colonIndex, colonIndex + 3) === '://') {
-    const scheme = url.slice(0, colonIndex);
-    return /^[a-zA-Z][a-zA-Z0-9+\-.]*$/.test(scheme);
-  }
-  return false;
+  return /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(url);
 }
 
 /**

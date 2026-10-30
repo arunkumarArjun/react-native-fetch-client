@@ -106,6 +106,55 @@ describe('VAPT Security & Hygiene Protections', () => {
       // Refresh mutex should NOT be invoked by untrusted cross-origin endpoint
       expect(refreshToken).not.toHaveBeenCalled();
     });
+
+    it('isolates credentials across multiple origins when baseURL is not configured', async () => {
+      let capturedAuth: string | null = null;
+      const fetchImpl = vi.fn().mockImplementation((req: Request) => {
+        capturedAuth = req.headers.get('authorization');
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      });
+
+      const client = createClient({
+        bearerToken: 'ambient-token-123',
+        fetchImpl,
+      });
+
+      // First call establishes trusted origin https://primary-service.com
+      await client.get('https://primary-service.com/v1');
+      expect(capturedAuth).toBe('Bearer ambient-token-123');
+
+      // Subsequent call to different origin must NOT receive ambient credentials
+      await client.get('https://untrusted-external-site.com/data');
+      expect(capturedAuth).toBeNull();
+    });
+
+    it('blocks cross-origin Link header pagination without explicit opt-in', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify([{ id: 1 }]), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            link: '<https://attacker.com/stealer?page=2>; rel="next"',
+          },
+        }),
+      );
+
+      const client = createClient({
+        baseURL: 'https://api.mycompany.com',
+        fetchImpl,
+      });
+
+      const iterator = client.paginate('/items');
+      // First page passes
+      await iterator.next();
+      // Second page cross-origin jump to attacker.com is blocked
+      await expect(iterator.next()).rejects.toThrow(/Cross-origin pagination/);
+    });
   });
 
   describe('2. Sensitive Header Redaction in Error Objects', () => {

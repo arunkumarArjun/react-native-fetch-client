@@ -18,6 +18,8 @@ import type {
   PaginationConfig,
   QueryParams,
 } from './types.js';
+import { isAbsoluteUrl, isSameOrigin } from './url.js';
+import { ConfigError } from './errors.js';
 
 /**
  * Parses an RFC 5988 / RFC 8288 `Link` header and extracts the URL for `rel="next"`.
@@ -69,6 +71,7 @@ function defaultExtractItems<T>(data: T): unknown[] {
  */
 export function createPaginateHelper(
   client: { get: HttpClient['get'] } | HttpClient,
+  defaultBaseURL?: string,
 ): PaginateHelper {
   /**
    * Async generator yielding pages of HttpResponse<TResponse>.
@@ -126,11 +129,41 @@ export function createPaginateHelper(
 
       yield res;
 
-      // Determine next URL or query parameters
+      // Determine next URL or query parameters with cross-origin SSRF guard
+      let nextCandidateUrl: string | null = null;
       if (cfg.getNextUrl) {
-        currentUrl = cfg.getNextUrl(res) ?? null;
+        nextCandidateUrl = cfg.getNextUrl(res) ?? null;
       } else if (strategy === 'linkHeader' || (!cfg.type && res.headers['link'])) {
-        currentUrl = parseNextLinkHeader(res.headers['link']);
+        nextCandidateUrl = parseNextLinkHeader(res.headers['link']);
+      }
+
+      if (nextCandidateUrl) {
+        const allowCrossOrigin = Boolean(
+          typeof options?.auth === 'object' && options?.auth?.allowCrossOrigin,
+        );
+        const baseOriginUrl = isAbsoluteUrl(initialUrl)
+          ? initialUrl
+          : defaultBaseURL && isAbsoluteUrl(defaultBaseURL)
+            ? defaultBaseURL
+            : undefined;
+
+        if (
+          isAbsoluteUrl(nextCandidateUrl) &&
+          baseOriginUrl &&
+          !isSameOrigin(baseOriginUrl, nextCandidateUrl) &&
+          !allowCrossOrigin
+        ) {
+          throw new ConfigError(
+            `Cross-origin pagination to "${nextCandidateUrl}" blocked from origin "${baseOriginUrl}". To allow cross-origin pagination, set auth.allowCrossOrigin: true in request options.`,
+          );
+        }
+        currentUrl = nextCandidateUrl;
+      } else if (
+        cfg.getNextUrl ||
+        strategy === 'linkHeader' ||
+        (!cfg.type && res.headers['link'])
+      ) {
+        currentUrl = null;
       } else if (strategy === 'cursor') {
         if (cfg.getNextCursor) {
           currentCursor = cfg.getNextCursor(res);

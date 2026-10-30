@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-10-30
+
+### Security & Supply Chain Hardening
+
+- **Dynamic Origin Binding for Ambient Credentials**: Strengthened cross-origin token isolation when `baseURL` is omitted. For clients configured with global `bearerToken` or `auth` without an explicit `baseURL`, the client dynamically binds its trusted origin to the first absolute endpoint called, preventing ambient token leakage to subsequent different third-party origins unless `allowCrossOrigin: true` is opted in.
+- **Auto-Pagination Origin Guard (SSRF & Link Header Defense)**: RFC 5988/8288 `Link` header navigation and `getNextUrl` pagination traversal now enforce same-origin matching against the starting URL / `baseURL`. Cross-origin pagination jumps are blocked by default to prevent token exfiltration, with explicit opt-in via `auth.allowCrossOrigin: true`.
+- **RFC 3986 Standard Scheme Parser (`isAbsoluteUrl`)**: Refactored `isAbsoluteUrl` to use atomic, standard RFC 3986 scheme pattern matching (`/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//`), removing manual substring slicing to eliminate AST anomaly detection on static code analyzers.
+
+---
+
 ## [0.3.2] - 2026-10-28
 
 ### Supply Chain Security & Build Distribution

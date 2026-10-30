@@ -1,6 +1,6 @@
 {
   "name": "react-native-fetch-client",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Zero-dependency, Fetch-native HTTP client for React Native, Expo, browsers, and Node.js with built-in 401 auth mutex, SWR caching, retries, and offline queue.",
   "author": "Arunkumar Arjunan",
   "license": "MIT",

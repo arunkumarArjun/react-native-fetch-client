@@ -7,7 +7,7 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 [![Socket Security](https://badge.socket.dev/npm/package/react-native-fetch-client)](https://socket.dev/npm/package/react-native-fetch-client)
 [![Bundle Size](https://img.shields.io/badge/bundle%20size-12.8%20KB%20min%2Bgzip-brightgreen.svg)](https://bundlephobia.com/package/react-native-fetch-client)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-299%20passed-brightgreen.svg)](test)
+[![Tests](https://img.shields.io/badge/tests-301%20passed-brightgreen.svg)](test)
 [![Documentation](https://img.shields.io/badge/docs-interactive%20site-blue.svg)](https://react-native-fetch-client.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)

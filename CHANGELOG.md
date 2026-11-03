@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-11-02
 
-### General Availability & Long-Term Support (LTS)
+### General Availability & Stable Release
 
-- **Official Stable Release (`v1.0.0`)**: Declares the public API stable with strict adherence to Semantic Versioning (SemVer) and Long-Term Support (LTS) guarantees.
+- **Official Stable Release (`v1.0.0`)**: Declares the public API stable with strict adherence to Semantic Versioning (SemVer).
 - **Enterprise-Vetted & Production-Hardened**:
   - **Zero Runtime Dependencies**: Strict `dependencies: {}` footprint guaranteed.
   - **Comprehensive Test Coverage**: 35 test suites with 301 automated unit and integration tests passing with 100% reliability.

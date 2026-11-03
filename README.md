@@ -324,17 +324,16 @@ export const api = createClient({
 - Request cancellation forwarding via TanStack Query's `signal`.
 
 > [!TIP]
-> Disable client caching (`cache: false` or omit `cache`) on transport clients paired with TanStack Query to prevent redundant duplicate caching in memory.
+> Keep client caching disabled (the default) on transport clients paired with TanStack Query to delegate all caching and invalidation to TanStack Query.
 
 ```typescript
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from 'react-native-fetch-client';
 
-// 1. Configure transport client (cache: false delegates caching to TanStack Query)
+// 1. Configure transport client (delegates caching to TanStack Query)
 export const api = createClient({
   baseURL: 'https://api.example.com/v1',
   timeout: 10000,
-  cache: false,
   auth: {
     getToken: async () => await getSecureToken(),
     refreshToken: async () => await refreshSession(),

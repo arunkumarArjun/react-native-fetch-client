@@ -7,6 +7,7 @@ import type {
   ResponseCache,
 } from './types.js';
 import { isAbsoluteUrl } from './url.js';
+import { hashAuthHeader } from './hash.js';
 
 /** Internal cache entry storing the cloned response and expiration timestamp. */
 export interface CacheEntry<T = unknown> {
@@ -51,19 +52,6 @@ export function cloneData<T>(data: T): T {
   } catch {
     return data;
   }
-}
-
-/**
- * Deterministically hashes an authorization header to an opaque hex digest.
- * Prevents raw authentication tokens and credentials from leaking into cache keys,
- * debug logs, or unencrypted persistent storage.
- */
-function hashAuthHeader(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16);
 }
 
 /**
@@ -350,6 +338,7 @@ export class CacheManager implements ResponseCache {
 
   /**
    * Checks if an entry exists and is expired (stale).
+   * @internal Not part of the ResponseCache public interface.
    */
   public isStale(key: string): boolean {
     const entry = this.store.get(key);

@@ -52,7 +52,6 @@ export type {
   PaginateHelper,
   PollOptions,
   WaitForOptions,
-  InternalRequestConfig,
 } from './types.js';
 
 export type { CacheEntry, SerializedCacheEntry } from './cache.js';

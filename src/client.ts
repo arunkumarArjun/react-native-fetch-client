@@ -22,6 +22,7 @@ import { ConcurrencyLimiter } from './concurrency.js';
 import { parseSseStream } from './stream.js';
 import { DefaultInterceptorManager } from './interceptor.js';
 import { createPaginateHelper } from './paginate.js';
+import { sleep } from './retry.js';
 import {
   isFetchNativeError,
   NetworkError,
@@ -46,38 +47,6 @@ import type {
   PollOptions,
   WaitForOptions,
 } from './types.js';
-
-function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
-  const toError = (reason: unknown): Error =>
-    reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : 'Aborted');
-
-  if (signal?.aborted) {
-    return Promise.reject(toError(signal.reason));
-  }
-  if (ms <= 0) return Promise.resolve();
-
-  return new Promise<void>((resolve, reject) => {
-    let onAbort: (() => void) | undefined;
-
-    const timerId = setTimeout(() => {
-      if (signal && onAbort) {
-        signal.removeEventListener('abort', onAbort);
-      }
-      resolve();
-    }, ms);
-
-    if (signal) {
-      onAbort = () => {
-        clearTimeout(timerId);
-        if (onAbort) {
-          signal.removeEventListener('abort', onAbort);
-        }
-        reject(toError(signal.reason));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
-  });
-}
 
 /**
  * Creates and configures a new `HttpClient` instance.
@@ -515,7 +484,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         }
 
         try {
-          await abortableSleep(waitMs, overallController.signal);
+          await sleep(waitMs, overallController.signal);
         } catch (sleepErr: unknown) {
           if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
             throw createTimeoutError();

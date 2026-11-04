@@ -70,6 +70,7 @@ export function isAbsoluteUrl(url: string): boolean {
  * @param url1 First URL string to compare.
  * @param url2 Second URL string to compare.
  * @returns True if both URLs share the same origin.
+ * @internal Used internally by the executor and paginate module; not part of the public API.
  */
 export function isSameOrigin(url1: string, url2: string): boolean {
   if (url1 === url2) return true;

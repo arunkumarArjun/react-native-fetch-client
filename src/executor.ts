@@ -30,6 +30,19 @@ import type {
   DebugLogEntry,
 } from './types.js';
 
+/**
+ * HTTP headers considered sensitive. Redacted in resolved config stored on responses and errors.
+ * Defined at module level to avoid a new array allocation on every request.
+ */
+const SENSITIVE_HEADERS = [
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'proxy-authorization',
+  'x-api-key',
+  'x-auth-token',
+];
+
 async function dispatchFetch<T>(
   url: string,
   method: string,
@@ -517,14 +530,6 @@ async function executeRequestInternal<T = unknown>(
     resolvedConfig.credentials = credentials;
   }
 
-  const SENSITIVE_HEADERS = [
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'proxy-authorization',
-    'x-api-key',
-    'x-auth-token',
-  ];
   const authHeaderKey = authManager ? authManager.getHeaderName().toLowerCase() : 'authorization';
   if (resolvedConfig.headers[authHeaderKey]) {
     resolvedConfig.headers[authHeaderKey] = '[REDACTED]';

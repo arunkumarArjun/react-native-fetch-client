@@ -1,5 +1,6 @@
 import { CancelError, createAbortError } from './errors.js';
 import { isAbsoluteUrl } from './url.js';
+import { hashAuthHeader } from './hash.js';
 import type { DedupConfig, HttpMethod, HttpResponse } from './types.js';
 
 interface Subscriber<T> {
@@ -13,14 +14,6 @@ interface InFlightEntry<T> {
   underlyingAbortController: AbortController;
   subscribers: Set<Subscriber<T>>;
   promise: Promise<HttpResponse<T>>;
-}
-
-function hashAuthHeader(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16);
 }
 
 /**

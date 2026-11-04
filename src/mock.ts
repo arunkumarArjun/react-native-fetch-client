@@ -9,17 +9,70 @@
  */
 
 import { TimeoutError } from './errors.js';
-import type {
-  HttpClient,
-  HttpMethod,
-  MockAdapter,
-  MockHandler,
-  MockHistoryItem,
-  MockReplyCallback,
-  RequestConfig,
-} from './types.js';
+import type { HttpClient, HttpMethod, RequestConfig } from './types.js';
 
-export type { MockAdapter, MockHandler, MockHistoryItem, MockReplyCallback };
+// ---------------------------------------------------------------------------
+// Mock adapter public types (defined here to keep the main bundle lean)
+// ---------------------------------------------------------------------------
+
+/**
+ * Dynamic callback generating a mock response based on the dispatched request config.
+ */
+export type MockReplyCallback<T = unknown> = (
+  config: RequestConfig & { url: string; method: HttpMethod },
+) => [number, T?, Record<string, string>?] | Promise<[number, T?, Record<string, string>?]>;
+
+/**
+ * Route handler definition for the mock adapter.
+ */
+export interface MockHandler {
+  readonly method: HttpMethod | 'ANY';
+  readonly url: string | RegExp;
+  /** Respond with a specific HTTP status code, data, and optional headers. */
+  reply(status: number, data?: unknown, headers?: Record<string, string>): void;
+  /** Respond with a dynamic callback returning [status, data, headers]. */
+  reply(callback: MockReplyCallback): void;
+  /** Simulate a network timeout error (`TimeoutError`). */
+  replyWithTimeout(): void;
+  /** Simulate a network connection failure (`NetworkError`). */
+  replyWithNetworkError(message?: string): void;
+}
+
+/**
+ * Captured history record of a request intercepted by the mock adapter.
+ */
+export interface MockHistoryItem {
+  url: string;
+  method: HttpMethod;
+  headers?: Record<string, string>;
+  body?: unknown;
+  params?: import('./types.js').QueryParams;
+  pathParams?: import('./types.js').PathParams;
+}
+
+/**
+ * Mock adapter instance returned by `createMockAdapter(client)`.
+ */
+export interface MockAdapter {
+  onGet(url?: string | RegExp): MockHandler;
+  onPost(url?: string | RegExp): MockHandler;
+  onPut(url?: string | RegExp): MockHandler;
+  onPatch(url?: string | RegExp): MockHandler;
+  onDelete(url?: string | RegExp): MockHandler;
+  onHead(url?: string | RegExp): MockHandler;
+  onOptions(url?: string | RegExp): MockHandler;
+  onAny(url?: string | RegExp): MockHandler;
+  /** Clear all mock route handlers and captured history. */
+  reset(): void;
+  /** Clear all registered mock route handlers. */
+  resetHandlers(): void;
+  /** Clear captured request history. */
+  resetHistory(): void;
+  /** Restore the original fetch implementation on the client. */
+  restore(): void;
+  /** Captured request history grouped by method. */
+  history: Record<Lowercase<HttpMethod> | 'all', MockHistoryItem[]>;
+}
 
 interface InternalMockHandler extends MockHandler {
   action: 'reply' | 'timeout' | 'networkError';

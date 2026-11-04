@@ -736,6 +736,12 @@ export interface RequestCacheConfig {
    * Default: true.
    */
   autoInvalidate?: boolean;
+  /**
+   * Whether to deep-clone cached response objects before returning them.
+   * Default: true (safe against in-place mutations).
+   * Set to false for zero-copy instant cache reads (< 0.1ms) when using immutable state stores.
+   */
+  clone?: boolean;
 }
 
 /** In-memory and persistent cache configuration for client-level setup. */
@@ -797,6 +803,12 @@ export interface CacheConfig {
    * Default: true.
    */
   autoInvalidateMutations?: boolean;
+  /**
+   * Whether to deep-clone cached response objects before returning them.
+   * Default: true (safe against in-place mutations).
+   * Set to false for zero-copy instant cache reads (< 0.1ms) when using immutable state stores.
+   */
+  clone?: boolean;
 }
 
 /**
@@ -804,9 +816,17 @@ export interface CacheConfig {
  */
 export interface ResponseCache {
   /** Get a cached response by key if present and not expired. */
-  get<T = unknown>(key: string): HttpResponse<T> | undefined;
-  /** Store a response in cache with optional TTL. */
-  set<T = unknown>(key: string, response: HttpResponse<T>, ttlMs?: number): void;
+  get<T = unknown>(
+    key: string,
+    options?: { allowStale?: boolean | undefined; clone?: boolean | undefined },
+  ): HttpResponse<T> | undefined;
+  /** Store a response in cache with optional TTL and clone override. */
+  set<T = unknown>(
+    key: string,
+    response: HttpResponse<T>,
+    ttlMs?: number,
+    options?: { clone?: boolean | undefined },
+  ): void;
   /** Check if a key exists in cache and is not expired. */
   has(key: string): boolean;
   /** Delete a specific cache entry. */

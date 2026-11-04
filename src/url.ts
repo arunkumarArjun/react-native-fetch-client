@@ -11,10 +11,15 @@
 
 import type { PathParams, QueryParams } from './types.js';
 
+const PATH_PARAM_PATTERN = /:([a-zA-Z0-9_]+)(?=[/?#]|$)|(?:\{([a-zA-Z0-9_]+)\})/g;
+
 /**
  * Interpolates path parameters into a URL template string.
  * Supports both Express-style (`:param`) and OpenAPI-style (`{param}`) placeholders.
  * Parameter values are automatically URI-encoded.
+ *
+ * Fast-paths URLs without parameter tokens and uses a single-pass pre-compiled regex
+ * to eliminate runtime regex recompilations on hot paths.
  *
  * @param url The URL template string (e.g. `/users/:id/orders/{orderId}`).
  * @param pathParams Object containing the parameter key/value mappings.
@@ -27,25 +32,19 @@ import type { PathParams, QueryParams } from './types.js';
  * ```
  */
 export function interpolatePath(url: string, pathParams?: PathParams): string {
-  if (!pathParams || Object.keys(pathParams).length === 0) {
+  if (!pathParams || (!url.includes(':') && !url.includes('{'))) {
     return url;
   }
 
-  let result = url;
-
-  for (const [key, val] of Object.entries(pathParams)) {
-    if (val !== undefined && val !== null) {
-      const encoded = encodeURIComponent(String(val));
-      // Replace :paramName
-      const colonPattern = new RegExp(`:${key}(?=[/?#]|$)`, 'g');
-      result = result.replace(colonPattern, encoded);
-      // Replace {paramName}
-      const bracePattern = new RegExp(`\\{${key}\\}`, 'g');
-      result = result.replace(bracePattern, encoded);
-    }
-  }
-
-  return result;
+  return url.replace(
+    PATH_PARAM_PATTERN,
+    (match: string, p1: string | undefined, p2: string | undefined) => {
+      const key = p1 ?? p2;
+      if (!key) return match;
+      const val = pathParams[key];
+      return val !== undefined && val !== null ? encodeURIComponent(String(val)) : match;
+    },
+  );
 }
 
 /**
@@ -73,6 +72,10 @@ export function isAbsoluteUrl(url: string): boolean {
  * @returns True if both URLs share the same origin.
  */
 export function isSameOrigin(url1: string, url2: string): boolean {
+  if (url1 === url2) return true;
+  const isAbs1 = isAbsoluteUrl(url1);
+  const isAbs2 = isAbsoluteUrl(url2);
+  if (!isAbs1 && !isAbs2) return true;
   try {
     const origin1 = new URL(url1, 'http://localhost').origin;
     const origin2 = new URL(url2, 'http://localhost').origin;
@@ -131,7 +134,7 @@ export function buildUrl(
   }
 
   // Step 3: Append query params
-  if (params) {
+  if (params && Object.keys(params).length > 0) {
     const hashIndex = resolvedUrl.indexOf('#');
     let urlWithoutHash = resolvedUrl;
     let hash = '';

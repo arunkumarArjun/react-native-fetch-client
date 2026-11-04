@@ -412,5 +412,54 @@ describe('Phase 7: In-Memory Response Caching', () => {
       client.cache.clear();
       expect(client.cache.size).toBe(0);
     });
+
+    it('supports zero-copy cache reads when clone: false is configured', async () => {
+      const mockPayload = { items: [1, 2, 3] };
+      const fetchImpl = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(mockPayload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      const client = createClient({
+        baseURL: 'https://api.example.com',
+        fetchImpl,
+        cache: { enabled: true, clone: false },
+      });
+
+      const res1 = await client.get<typeof mockPayload>('/items');
+      const res2 = await client.get<typeof mockPayload>('/items');
+
+      expect(res1.cached).toBe(false);
+      expect(res2.cached).toBe(true);
+      // With clone: false, it returns the exact same object reference (zero copy)
+      expect(res1.data).toBe(res2.data);
+    });
+
+    it('deep-clones cache data by default (clone: true) to prevent state mutation', async () => {
+      const mockPayload = { items: [1, 2, 3] };
+      const fetchImpl = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(mockPayload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      const client = createClient({
+        baseURL: 'https://api.example.com',
+        fetchImpl,
+        cache: { enabled: true },
+      });
+
+      const res1 = await client.get<typeof mockPayload>('/items');
+      const res2 = await client.get<typeof mockPayload>('/items');
+
+      expect(res1.cached).toBe(false);
+      expect(res2.cached).toBe(true);
+      // With default clone: true, it returns deep cloned copy
+      expect(res1.data).not.toBe(res2.data);
+      expect(res1.data).toEqual(res2.data);
+    });
   });
 });

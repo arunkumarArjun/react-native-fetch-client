@@ -79,11 +79,17 @@ export function generateCacheKey(
   responseType?: string,
 ): string {
   const normMethod = method.toUpperCase();
-  const isRelative = !isAbsoluteUrl(url);
-  const urlObj = new URL(url, 'http://localhost');
-  urlObj.searchParams.sort();
-  const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
-  const sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
+
+  // Fast-path: When URL contains no query string (no searchParams to sort),
+  // bypass expensive WHATWG URL instantiation entirely.
+  let sortedUrl = url;
+  if (url.includes('?')) {
+    const isRelative = !isAbsoluteUrl(url);
+    const urlObj = new URL(url, 'http://localhost');
+    urlObj.searchParams.sort();
+    const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
+    sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
+  }
 
   const resType = responseType || 'json';
   const typePart = resType !== 'json' ? `|type:${resType}` : '';
@@ -174,6 +180,7 @@ export class CacheManager implements ResponseCache {
   public readonly storage?: CacheStorageAdapter;
   public readonly storageKey: string;
   public readonly defaultStrategy: 'cache-first' | 'stale-while-revalidate';
+  public readonly clone: boolean;
   private hydrationPromise: Promise<void> | null = null;
 
   constructor(config?: CacheConfig) {
@@ -184,6 +191,7 @@ export class CacheManager implements ResponseCache {
     }
     this.storageKey = config?.storageKey ?? 'rnfc_http_cache';
     this.defaultStrategy = config?.strategy ?? config?.defaultStrategy ?? 'cache-first';
+    this.clone = config?.clone !== false;
 
     // Auto-hydrate if persistent storage is provided
     if (this.storage) {
@@ -308,7 +316,7 @@ export class CacheManager implements ResponseCache {
    */
   public get<T = unknown>(
     key: string,
-    options?: { allowStale?: boolean },
+    options?: { allowStale?: boolean | undefined; clone?: boolean | undefined },
   ): HttpResponse<T> | undefined {
     const entry = this.store.get(key) as CacheEntry<T> | undefined;
     if (!entry) {
@@ -326,10 +334,12 @@ export class CacheManager implements ResponseCache {
     this.store.delete(key);
     this.store.set(key, entry);
 
-    // Return cloned response with cached: true and stale indicator
+    const shouldClone = options?.clone !== undefined ? options.clone : this.clone;
+
+    // Return response with cached: true and stale indicator
     const res: HttpResponse<T> = {
       ...entry.response,
-      data: cloneData(entry.response.data),
+      data: shouldClone ? cloneData(entry.response.data) : entry.response.data,
       cached: true,
     };
     if (isExpired) {
@@ -387,26 +397,35 @@ export class CacheManager implements ResponseCache {
 
     if (this.storage) void this.persist();
 
+    const shouldClone = this.clone;
+
     return {
       ...entry.response,
-      data: cloneData(entry.response.data),
+      data: shouldClone ? cloneData(entry.response.data) : entry.response.data,
       cached: true,
       stale: false,
     };
   }
 
-  public set<T = unknown>(key: string, response: HttpResponse<T>, ttlMs?: number): void {
+  public set<T = unknown>(
+    key: string,
+    response: HttpResponse<T>,
+    ttlMs?: number,
+    options?: { clone?: boolean | undefined },
+  ): void {
     const ttl = ttlMs !== undefined && ttlMs >= 0 ? ttlMs : this.defaultTtl;
     const expiresAt = Date.now() + ttl;
 
     const etag = response.headers['etag'];
     const lastModified = response.headers['last-modified'];
 
-    // Deep clone data to store immutable snapshot
+    const shouldClone = options?.clone !== undefined ? options.clone : this.clone;
+
+    // Deep clone data to store immutable snapshot if cloning is enabled
     const entry: CacheEntry<T> = {
       response: {
         ...response,
-        data: cloneData(response.data),
+        data: shouldClone ? cloneData(response.data) : response.data,
         cached: true,
       },
       expiresAt,

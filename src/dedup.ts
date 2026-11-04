@@ -38,14 +38,16 @@ export function generateDedupKey(
   const m = method.toUpperCase();
 
   let normalizedUrl = url;
-  try {
-    const isRelative = !isAbsoluteUrl(url);
-    const parsed = new URL(url, 'http://localhost');
-    parsed.searchParams.sort();
-    const pathWithSearch = parsed.pathname + parsed.search;
-    normalizedUrl = isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
-  } catch {
-    // Keep original url
+  if (url.includes('?')) {
+    try {
+      const isRelative = !isAbsoluteUrl(url);
+      const parsed = new URL(url, 'http://localhost');
+      parsed.searchParams.sort();
+      const pathWithSearch = parsed.pathname + parsed.search;
+      normalizedUrl = isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
+    } catch {
+      // Keep original url
+    }
   }
 
   const relevantKeys = ['accept', 'content-type', 'authorization', 'accept-language'];

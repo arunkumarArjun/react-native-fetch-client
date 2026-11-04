@@ -367,8 +367,13 @@ async function executeRequestInternal<T = unknown>(
         clientConfig.cache?.defaultStrategy ||
         'cache-first';
 
+      const reqClone = typeof config.cache === 'object' ? config.cache.clone : undefined;
+
       if (isFresh && !forceRevalidate) {
-        const cachedResponse = cacheManager.get<T>(cacheKey);
+        const cachedResponse = cacheManager.get<T>(
+          cacheKey,
+          reqClone !== undefined ? { clone: reqClone } : undefined,
+        );
         if (cachedResponse !== undefined) {
           cachedResponse.durationMs = Date.now() - startTime;
           return cachedResponse;
@@ -377,7 +382,9 @@ async function executeRequestInternal<T = unknown>(
 
       // Stale-While-Revalidate (SWR): Return stale response instantly, revalidate in background
       if (strategy === 'stale-while-revalidate' && !config._isRevalidating) {
-        const staleResponse = cacheManager.get<T>(cacheKey, { allowStale: true });
+        const staleOptions =
+          reqClone !== undefined ? { allowStale: true, clone: reqClone } : { allowStale: true };
+        const staleResponse = cacheManager.get<T>(cacheKey, staleOptions);
         if (staleResponse !== undefined) {
           staleResponse.durationMs = Date.now() - startTime;
           const revalidateConfig: InternalRequestConfig = {
@@ -691,7 +698,13 @@ async function executeRequestInternal<T = unknown>(
             typeof config.cache === 'object' && config.cache.ttl !== undefined
               ? config.cache.ttl
               : undefined;
-          cacheManager.set(cacheKey, response, reqTtl);
+          const reqClone = typeof config.cache === 'object' ? config.cache.clone : undefined;
+          cacheManager.set(
+            cacheKey,
+            response,
+            reqTtl,
+            reqClone !== undefined ? { clone: reqClone } : undefined,
+          );
         }
 
         // On successful mutation, invalidate matching URL/path in cache if auto-invalidation is active

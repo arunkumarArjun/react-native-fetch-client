@@ -14,12 +14,14 @@ export function mergeHeaders(...headersList: (HeadersInit | undefined)[]): Recor
       !Array.isArray(headers) &&
       typeof (headers as Headers).forEach !== 'function'
     ) {
-      for (const key of Object.keys(headers)) {
-        const val = (headers as Record<string, unknown>)[key];
-        if (typeof val === 'string') {
-          merged[key.toLowerCase()] = val;
-        } else if (typeof val === 'number' || typeof val === 'boolean') {
-          merged[key.toLowerCase()] = String(val);
+      for (const key in headers) {
+        if (Object.prototype.hasOwnProperty.call(headers, key)) {
+          const val = (headers as Record<string, unknown>)[key];
+          if (typeof val === 'string') {
+            merged[key.toLowerCase()] = val;
+          } else if (typeof val === 'number' || typeof val === 'boolean') {
+            merged[key.toLowerCase()] = String(val);
+          }
         }
       }
       continue;

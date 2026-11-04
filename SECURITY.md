@@ -47,6 +47,21 @@ This keeps the report private, encrypted, and accessible only to the project mai
 
 ---
 
+## Supply Chain & Scanner Policy (Socket.dev)
+
+### Network Access Capability (`networkAccess`)
+
+Static security scanners such as [Socket.dev](https://socket.dev/npm/package/react-native-fetch-client) flag the `networkAccess` capability for `react-native-fetch-client` because the library resolves and executes `globalThis.fetch`.
+
+- **Intended Capability**: As an HTTP client library, network communication via the WHATWG `fetch` API is the core purpose of `react-native-fetch-client`.
+- **Zero Background Telemetry**: The library contains **zero telemetry, tracking pings, metrics collection, or covert network requests**. Outbound requests are only dispatched when the consuming application explicitly calls client methods (`.get()`, `.post()`, `.request()`, etc.).
+- **Zero Supply Chain Dependencies**: The library maintains strictly zero production dependencies (`"dependencies": {}`), eliminating third-party transitive supply chain risks.
+- **Zero Install Scripts**: The package contains no `postinstall`, `preinstall`, or arbitrary lifecycle scripts.
+
+If your CI/CD pipeline enforces Socket.dev checks, configure `.socket.yml` to acknowledge `networkAccess: false` for this repository.
+
+---
+
 ## Network Security & VAPT Guidance
 
 ### Sensitive Data Protection & Proxy Defenses

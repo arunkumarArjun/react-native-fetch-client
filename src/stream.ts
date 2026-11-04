@@ -15,6 +15,16 @@
 
 import type { StreamEvent, StreamOptions } from './types.js';
 
+function parseFieldLine(line: string): [field: string, value: string] {
+  const colonIdx = line.indexOf(':');
+  if (colonIdx === -1) {
+    return [line, ''];
+  }
+  const field = line.substring(0, colonIdx);
+  const value = line.substring(colonIdx + 1);
+  return [field, value.startsWith(' ') ? value.substring(1) : value];
+}
+
 /**
  * Parses a WHATWG ReadableStream into an AsyncGenerator of StreamEvent objects.
  * Follows the W3C / WHATWG Server-Sent Events line format:
@@ -118,18 +128,7 @@ export async function* parseSseStream(
         }
 
         // Parse field and value
-        let field = line;
-        let valueStr = '';
-        const colonIdx = line.indexOf(':');
-
-        if (colonIdx !== -1) {
-          field = line.substring(0, colonIdx);
-          valueStr = line.substring(colonIdx + 1);
-          // If value starts with a single space, strip it per spec
-          if (valueStr.startsWith(' ')) {
-            valueStr = valueStr.substring(1);
-          }
-        }
+        const [field, valueStr] = parseFieldLine(line);
 
         switch (field) {
           case 'event':
@@ -158,16 +157,7 @@ export async function* parseSseStream(
       if (rawLines) {
         yield { data: line };
       } else if (!line.startsWith(':')) {
-        let field = line;
-        let valueStr = '';
-        const colonIdx = line.indexOf(':');
-        if (colonIdx !== -1) {
-          field = line.substring(0, colonIdx);
-          valueStr = line.substring(colonIdx + 1);
-          if (valueStr.startsWith(' ')) {
-            valueStr = valueStr.substring(1);
-          }
-        }
+        const [field, valueStr] = parseFieldLine(line);
         if (field === 'data') {
           currentData.push(valueStr);
         } else if (field === 'event') {

@@ -1,4 +1,5 @@
 import { ConfigError, isHttpError, isNetworkError, isTimeoutError } from '../errors.js';
+import { mergeHeaders } from '../headers.js';
 import { MemoryStorageAdapter } from './storage.js';
 import type {
   OfflineQueue,
@@ -138,30 +139,12 @@ export function createOfflineQueue(config: OfflineQueueConfig): OfflineQueue {
     const id = generateId();
 
     // Idempotency: use existing idempotency header or generate one
-    let assignedIdempotencyKey = '';
-    const normHeaders: Record<string, string> = {};
-    if (reqConfig.headers) {
-      if (typeof (reqConfig.headers as Headers).forEach === 'function') {
-        (reqConfig.headers as Headers).forEach((v, k) => {
-          normHeaders[k.toLowerCase()] = v;
-        });
-      } else if (Array.isArray(reqConfig.headers)) {
-        for (const [k, v] of reqConfig.headers) {
-          normHeaders[k.toLowerCase()] = v;
-        }
-      } else {
-        for (const [k, v] of Object.entries(reqConfig.headers)) {
-          if (typeof v === 'string') {
-            normHeaders[k.toLowerCase()] = v;
-          }
-        }
-      }
-      assignedIdempotencyKey =
-        normHeaders[idempotencyHeader.toLowerCase()] ??
-        normHeaders['idempotency-key'] ??
-        normHeaders['x-idempotency-key'] ??
-        '';
-    }
+    const normHeaders = mergeHeaders(reqConfig.headers);
+    let assignedIdempotencyKey =
+      normHeaders[idempotencyHeader.toLowerCase()] ??
+      normHeaders['idempotency-key'] ??
+      normHeaders['x-idempotency-key'] ??
+      '';
 
     if (!assignedIdempotencyKey) {
       assignedIdempotencyKey = id;

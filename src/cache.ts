@@ -4,9 +4,29 @@ import type {
   HttpMethod,
   HttpResponse,
   RequestCacheConfig,
+  ResolvedRequestConfig,
   ResponseCache,
 } from './types.js';
-import { isAbsoluteUrl } from './url.js';
+import { sortQueryString } from './url.js';
+import { hashAuthHeader } from './hash.js';
+
+const DUMMY_HYDRATE_CONFIG: ResolvedRequestConfig = {
+  url: '',
+  method: 'GET',
+  headers: {},
+  timeout: 0,
+  responseType: 'json',
+  retry: {
+    attempts: 0,
+    backoff: 'exponential',
+    delay: 1000,
+    maxDelay: 30000,
+    jitter: true,
+    retryOn: [429, 500, 502, 503, 504],
+    safeMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'],
+    respectRetryAfter: true,
+  },
+};
 
 /** Internal cache entry storing the cloned response and expiration timestamp. */
 export interface CacheEntry<T = unknown> {
@@ -54,19 +74,6 @@ export function cloneData<T>(data: T): T {
 }
 
 /**
- * Deterministically hashes an authorization header to an opaque hex digest.
- * Prevents raw authentication tokens and credentials from leaking into cache keys,
- * debug logs, or unencrypted persistent storage.
- */
-function hashAuthHeader(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(16);
-}
-
-/**
  * Generates a cache key for a request.
  * Normalizes URL and includes authorization header hash if authenticated caching is allowed,
  * response type representation, and tenant/custom isolation headers (x-*).
@@ -79,11 +86,8 @@ export function generateCacheKey(
   responseType?: string,
 ): string {
   const normMethod = method.toUpperCase();
-  const isRelative = !isAbsoluteUrl(url);
-  const urlObj = new URL(url, 'http://localhost');
-  urlObj.searchParams.sort();
-  const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
-  const sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
+
+  const sortedUrl = sortQueryString(url);
 
   const resType = responseType || 'json';
   const typePart = resType !== 'json' ? `|type:${resType}` : '';
@@ -174,6 +178,7 @@ export class CacheManager implements ResponseCache {
   public readonly storage?: CacheStorageAdapter;
   public readonly storageKey: string;
   public readonly defaultStrategy: 'cache-first' | 'stale-while-revalidate';
+  public readonly clone: boolean;
   private hydrationPromise: Promise<void> | null = null;
 
   constructor(config?: CacheConfig) {
@@ -184,6 +189,7 @@ export class CacheManager implements ResponseCache {
     }
     this.storageKey = config?.storageKey ?? 'rnfc_http_cache';
     this.defaultStrategy = config?.strategy ?? config?.defaultStrategy ?? 'cache-first';
+    this.clone = config?.clone !== false;
 
     // Auto-hydrate if persistent storage is provided
     if (this.storage) {
@@ -223,23 +229,7 @@ export class CacheManager implements ResponseCache {
                   status: rawEntry.status,
                   statusText: rawEntry.statusText,
                   headers: rawEntry.headers,
-                  config: {
-                    url: '',
-                    method: 'GET',
-                    headers: {},
-                    timeout: 0,
-                    responseType: 'json',
-                    retry: {
-                      attempts: 0,
-                      backoff: 'exponential',
-                      delay: 1000,
-                      maxDelay: 30000,
-                      jitter: true,
-                      retryOn: [429, 500, 502, 503, 504],
-                      safeMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'],
-                      respectRetryAfter: true,
-                    },
-                  },
+                  config: DUMMY_HYDRATE_CONFIG,
                   cached: true,
                   fromDedup: false,
                   request: (typeof Request !== 'undefined'
@@ -308,7 +298,7 @@ export class CacheManager implements ResponseCache {
    */
   public get<T = unknown>(
     key: string,
-    options?: { allowStale?: boolean },
+    options?: { allowStale?: boolean | undefined; clone?: boolean | undefined },
   ): HttpResponse<T> | undefined {
     const entry = this.store.get(key) as CacheEntry<T> | undefined;
     if (!entry) {
@@ -326,10 +316,12 @@ export class CacheManager implements ResponseCache {
     this.store.delete(key);
     this.store.set(key, entry);
 
-    // Return cloned response with cached: true and stale indicator
+    const shouldClone = options?.clone !== undefined ? options.clone : this.clone;
+
+    // Return response with cached: true and stale indicator
     const res: HttpResponse<T> = {
       ...entry.response,
-      data: cloneData(entry.response.data),
+      data: shouldClone ? cloneData(entry.response.data) : entry.response.data,
       cached: true,
     };
     if (isExpired) {
@@ -340,6 +332,7 @@ export class CacheManager implements ResponseCache {
 
   /**
    * Checks if an entry exists and is expired (stale).
+   * @internal Not part of the ResponseCache public interface.
    */
   public isStale(key: string): boolean {
     const entry = this.store.get(key);
@@ -387,26 +380,35 @@ export class CacheManager implements ResponseCache {
 
     if (this.storage) void this.persist();
 
+    const shouldClone = this.clone;
+
     return {
       ...entry.response,
-      data: cloneData(entry.response.data),
+      data: shouldClone ? cloneData(entry.response.data) : entry.response.data,
       cached: true,
       stale: false,
     };
   }
 
-  public set<T = unknown>(key: string, response: HttpResponse<T>, ttlMs?: number): void {
+  public set<T = unknown>(
+    key: string,
+    response: HttpResponse<T>,
+    ttlMs?: number,
+    options?: { clone?: boolean | undefined },
+  ): void {
     const ttl = ttlMs !== undefined && ttlMs >= 0 ? ttlMs : this.defaultTtl;
     const expiresAt = Date.now() + ttl;
 
     const etag = response.headers['etag'];
     const lastModified = response.headers['last-modified'];
 
-    // Deep clone data to store immutable snapshot
+    const shouldClone = options?.clone !== undefined ? options.clone : this.clone;
+
+    // Deep clone data to store immutable snapshot if cloning is enabled
     const entry: CacheEntry<T> = {
       response: {
         ...response,
-        data: cloneData(response.data),
+        data: shouldClone ? cloneData(response.data) : response.data,
         cached: true,
       },
       expiresAt,

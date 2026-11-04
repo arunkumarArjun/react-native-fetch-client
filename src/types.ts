@@ -406,6 +406,8 @@ export interface RequestConfig {
 /**
  * Internal request configuration used by the execution pipeline to carry runtime state.
  * Extends public `RequestConfig` with private engine-level control flags.
+ *
+ * @internal This type is not part of the public API and may change between minor versions.
  */
 export interface InternalRequestConfig extends RequestConfig {
   /** Internal tracking flag indicating whether this request is a post-refresh retry. */
@@ -736,6 +738,12 @@ export interface RequestCacheConfig {
    * Default: true.
    */
   autoInvalidate?: boolean;
+  /**
+   * Whether to deep-clone cached response objects before returning them.
+   * Default: true (safe against in-place mutations).
+   * Set to false for zero-copy instant cache reads (< 0.1ms) when using immutable state stores.
+   */
+  clone?: boolean;
 }
 
 /** In-memory and persistent cache configuration for client-level setup. */
@@ -797,6 +805,12 @@ export interface CacheConfig {
    * Default: true.
    */
   autoInvalidateMutations?: boolean;
+  /**
+   * Whether to deep-clone cached response objects before returning them.
+   * Default: true (safe against in-place mutations).
+   * Set to false for zero-copy instant cache reads (< 0.1ms) when using immutable state stores.
+   */
+  clone?: boolean;
 }
 
 /**
@@ -804,9 +818,17 @@ export interface CacheConfig {
  */
 export interface ResponseCache {
   /** Get a cached response by key if present and not expired. */
-  get<T = unknown>(key: string): HttpResponse<T> | undefined;
-  /** Store a response in cache with optional TTL. */
-  set<T = unknown>(key: string, response: HttpResponse<T>, ttlMs?: number): void;
+  get<T = unknown>(
+    key: string,
+    options?: { allowStale?: boolean | undefined; clone?: boolean | undefined },
+  ): HttpResponse<T> | undefined;
+  /** Store a response in cache with optional TTL and clone override. */
+  set<T = unknown>(
+    key: string,
+    response: HttpResponse<T>,
+    ttlMs?: number,
+    options?: { clone?: boolean | undefined },
+  ): void;
   /** Check if a key exists in cache and is not expired. */
   has(key: string): boolean;
   /** Delete a specific cache entry. */
@@ -1025,69 +1047,6 @@ export interface PaginateHelper {
     url: string,
     options?: PaginateOptions<TResponse>,
   ): Promise<TItem[]>;
-}
-
-// ---------------------------------------------------------------------------
-// Testing Mock Adapter
-// ---------------------------------------------------------------------------
-
-/**
- * Dynamic callback generating a mock response based on the dispatched request config.
- */
-export type MockReplyCallback<T = unknown> = (
-  config: RequestConfig & { url: string; method: HttpMethod },
-) => [number, T?, Record<string, string>?] | Promise<[number, T?, Record<string, string>?]>;
-
-/**
- * Route handler definition for the mock adapter.
- */
-export interface MockHandler {
-  readonly method: HttpMethod | 'ANY';
-  readonly url: string | RegExp;
-  /** Respond with a specific HTTP status code, data, and optional headers. */
-  reply(status: number, data?: unknown, headers?: Record<string, string>): void;
-  /** Respond with a dynamic callback returning [status, data, headers]. */
-  reply(callback: MockReplyCallback): void;
-  /** Simulate a network timeout error (`TimeoutError`). */
-  replyWithTimeout(): void;
-  /** Simulate a network connection failure (`NetworkError`). */
-  replyWithNetworkError(message?: string): void;
-}
-
-/**
- * Captured history record of a request intercepted by the mock adapter.
- */
-export interface MockHistoryItem {
-  url: string;
-  method: HttpMethod;
-  headers?: Record<string, string>;
-  body?: unknown;
-  params?: QueryParams;
-  pathParams?: PathParams;
-}
-
-/**
- * Mock adapter instance returned by `createMockAdapter(client)`.
- */
-export interface MockAdapter {
-  onGet(url?: string | RegExp): MockHandler;
-  onPost(url?: string | RegExp): MockHandler;
-  onPut(url?: string | RegExp): MockHandler;
-  onPatch(url?: string | RegExp): MockHandler;
-  onDelete(url?: string | RegExp): MockHandler;
-  onHead(url?: string | RegExp): MockHandler;
-  onOptions(url?: string | RegExp): MockHandler;
-  onAny(url?: string | RegExp): MockHandler;
-  /** Clear all mock route handlers and captured history. */
-  reset(): void;
-  /** Clear all registered mock route handlers. */
-  resetHandlers(): void;
-  /** Clear captured request history. */
-  resetHistory(): void;
-  /** Restore the original fetch implementation on the client. */
-  restore(): void;
-  /** Captured request history grouped by method. */
-  history: Record<Lowercase<HttpMethod> | 'all', MockHistoryItem[]>;
 }
 
 // ---------------------------------------------------------------------------

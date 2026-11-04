@@ -1,12 +1,11 @@
 import {
+  FetchNativeError,
   HttpError,
   NetworkError,
   ConfigError,
   TimeoutError,
   CancelError,
   RetryExhaustedError,
-  ParseError,
-  ValidationError,
   AuthRefreshError,
   createAbortError,
 } from './errors.js';
@@ -29,6 +28,19 @@ import type {
   SchemaValidator,
   DebugLogEntry,
 } from './types.js';
+
+/**
+ * HTTP headers considered sensitive. Redacted in resolved config stored on responses and errors.
+ * Defined at module level to avoid a new array allocation on every request.
+ */
+const SENSITIVE_HEADERS = [
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'proxy-authorization',
+  'x-api-key',
+  'x-auth-token',
+];
 
 async function dispatchFetch<T>(
   url: string,
@@ -367,8 +379,13 @@ async function executeRequestInternal<T = unknown>(
         clientConfig.cache?.defaultStrategy ||
         'cache-first';
 
+      const reqClone = typeof config.cache === 'object' ? config.cache.clone : undefined;
+
       if (isFresh && !forceRevalidate) {
-        const cachedResponse = cacheManager.get<T>(cacheKey);
+        const cachedResponse = cacheManager.get<T>(
+          cacheKey,
+          reqClone !== undefined ? { clone: reqClone } : undefined,
+        );
         if (cachedResponse !== undefined) {
           cachedResponse.durationMs = Date.now() - startTime;
           return cachedResponse;
@@ -377,7 +394,9 @@ async function executeRequestInternal<T = unknown>(
 
       // Stale-While-Revalidate (SWR): Return stale response instantly, revalidate in background
       if (strategy === 'stale-while-revalidate' && !config._isRevalidating) {
-        const staleResponse = cacheManager.get<T>(cacheKey, { allowStale: true });
+        const staleOptions =
+          reqClone !== undefined ? { allowStale: true, clone: reqClone } : { allowStale: true };
+        const staleResponse = cacheManager.get<T>(cacheKey, staleOptions);
         if (staleResponse !== undefined) {
           staleResponse.durationMs = Date.now() - startTime;
           const revalidateConfig: InternalRequestConfig = {
@@ -510,14 +529,6 @@ async function executeRequestInternal<T = unknown>(
     resolvedConfig.credentials = credentials;
   }
 
-  const SENSITIVE_HEADERS = [
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'proxy-authorization',
-    'x-api-key',
-    'x-auth-token',
-  ];
   const authHeaderKey = authManager ? authManager.getHeaderName().toLowerCase() : 'authorization';
   if (resolvedConfig.headers[authHeaderKey]) {
     resolvedConfig.headers[authHeaderKey] = '[REDACTED]';
@@ -691,7 +702,13 @@ async function executeRequestInternal<T = unknown>(
             typeof config.cache === 'object' && config.cache.ttl !== undefined
               ? config.cache.ttl
               : undefined;
-          cacheManager.set(cacheKey, response, reqTtl);
+          const reqClone = typeof config.cache === 'object' ? config.cache.clone : undefined;
+          cacheManager.set(
+            cacheKey,
+            response,
+            reqTtl,
+            reqClone !== undefined ? { clone: reqClone } : undefined,
+          );
         }
 
         // On successful mutation, invalidate matching URL/path in cache if auto-invalidation is active
@@ -806,14 +823,7 @@ async function executeRequestInternal<T = unknown>(
       }
       throw new Error(String(err.originalError), { cause: err });
     }
-    if (err instanceof TimeoutError) throw err;
-    if (err instanceof CancelError) throw err;
-    if (err instanceof RetryExhaustedError) throw err;
-    if (err instanceof HttpError) throw err;
-    if (err instanceof ConfigError) throw err;
-    if (err instanceof ParseError) throw err;
-    if (err instanceof ValidationError) throw err;
-    if (err instanceof NetworkError) throw err;
+    if (err instanceof FetchNativeError) throw err;
 
     if ((err instanceof Error && err.name === 'AbortError') || totalController.signal.aborted) {
       const reason: unknown = totalController.signal.reason;

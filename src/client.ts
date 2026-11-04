@@ -22,6 +22,7 @@ import { ConcurrencyLimiter } from './concurrency.js';
 import { parseSseStream } from './stream.js';
 import { DefaultInterceptorManager } from './interceptor.js';
 import { createPaginateHelper } from './paginate.js';
+import { sleep } from './retry.js';
 import {
   isFetchNativeError,
   NetworkError,
@@ -37,6 +38,7 @@ import type {
   RequestConfig,
   HttpMethod,
   HttpResponse,
+  ResolvedRetryPolicy,
   SafeResult,
   SafeHttpClient,
   StreamEvent,
@@ -47,36 +49,30 @@ import type {
   WaitForOptions,
 } from './types.js';
 
-function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
-  const toError = (reason: unknown): Error =>
-    reason instanceof Error ? reason : new Error(typeof reason === 'string' ? reason : 'Aborted');
+const ZERO_RETRY_POLICY: ResolvedRetryPolicy = {
+  attempts: 0,
+  backoff: 'exponential',
+  delay: 0,
+  maxDelay: 0,
+  jitter: false,
+  retryOn: [],
+  safeMethods: [],
+  respectRetryAfter: false,
+};
 
-  if (signal?.aborted) {
-    return Promise.reject(toError(signal.reason));
-  }
-  if (ms <= 0) return Promise.resolve();
-
-  return new Promise<void>((resolve, reject) => {
-    let onAbort: (() => void) | undefined;
-
-    const timerId = setTimeout(() => {
-      if (signal && onAbort) {
-        signal.removeEventListener('abort', onAbort);
-      }
-      resolve();
-    }, ms);
-
-    if (signal) {
-      onAbort = () => {
-        clearTimeout(timerId);
-        if (onAbort) {
-          signal.removeEventListener('abort', onAbort);
-        }
-        reject(toError(signal.reason));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
-  });
+function mergeReq(
+  method: HttpMethod,
+  url: string,
+  body?: RequestConfig['body'],
+  reqConfig?: RequestConfig,
+): RequestConfig & { url: string; method: HttpMethod } {
+  const merged: RequestConfig & { url: string; method: HttpMethod } = {
+    ...reqConfig,
+    url,
+    method,
+  };
+  if (body !== undefined) merged.body = body;
+  return merged;
 }
 
 /**
@@ -226,33 +222,12 @@ export function createClient(config: ClientConfig = {}): HttpClient {
   const safe: SafeHttpClient = {
     get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'GET' }),
-    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'POST',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
-    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PUT',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
-    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PATCH',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('POST', url, body, reqConfig)),
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('PUT', url, body, reqConfig)),
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('PATCH', url, body, reqConfig)),
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
@@ -383,18 +358,17 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           headers: {},
           timeout,
           responseType: options.responseType ?? 'json',
-          retry: {
-            attempts: 0,
-            backoff: 'exponential',
-            delay: 0,
-            maxDelay: 0,
-            jitter: false,
-            retryOn: [],
-            safeMethods: [],
-            respectRetryAfter: false,
-          },
+          retry: ZERO_RETRY_POLICY,
         },
       });
+
+    const checkAbort = (fallbackError?: unknown): void => {
+      if (callerAborted || options.signal?.aborted) {
+        const reason: unknown = options.signal?.reason;
+        if (reason instanceof CancelError) throw reason;
+        throw new CancelError({ cause: reason ?? fallbackError });
+      }
+    };
 
     const overallController = new AbortController();
     let overallTimerId: ReturnType<typeof setTimeout> | undefined;
@@ -429,11 +403,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
 
     try {
       while (true) {
-        if (callerAborted || options.signal?.aborted) {
-          const reason: unknown = options.signal?.reason;
-          if (reason instanceof CancelError) throw reason;
-          throw new CancelError({ cause: reason });
-        }
+        checkAbort();
 
         if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
           throw createTimeoutError();
@@ -457,11 +427,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
             throw createTimeoutError();
           }
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason ?? err });
-          }
+          checkAbort(err);
           if (err instanceof TimeoutError && timedOut) {
             throw createTimeoutError();
           }
@@ -515,16 +481,12 @@ export function createClient(config: ClientConfig = {}): HttpClient {
         }
 
         try {
-          await abortableSleep(waitMs, overallController.signal);
+          await sleep(waitMs, overallController.signal);
         } catch (sleepErr: unknown) {
           if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
             throw createTimeoutError();
           }
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason ?? sleepErr });
-          }
+          checkAbort(sleepErr);
           throw sleepErr;
         }
 
@@ -537,11 +499,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       ) {
         throw createTimeoutError();
       }
-      if (callerAborted || options.signal?.aborted) {
-        const reason: unknown = options.signal?.reason;
-        if (reason instanceof CancelError) throw reason;
-        throw new CancelError({ cause: reason ?? err });
-      }
+      checkAbort(err);
       throw err;
     } finally {
       cleanup();
@@ -552,33 +510,12 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     request,
     get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'GET' }),
-    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'POST',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
-    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PUT',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
-    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PATCH',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('POST', url, body, reqConfig)),
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('PUT', url, body, reqConfig)),
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('PATCH', url, body, reqConfig)),
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>

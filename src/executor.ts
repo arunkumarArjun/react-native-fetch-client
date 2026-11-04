@@ -1,12 +1,11 @@
 import {
+  FetchNativeError,
   HttpError,
   NetworkError,
   ConfigError,
   TimeoutError,
   CancelError,
   RetryExhaustedError,
-  ParseError,
-  ValidationError,
   AuthRefreshError,
   createAbortError,
 } from './errors.js';
@@ -824,14 +823,7 @@ async function executeRequestInternal<T = unknown>(
       }
       throw new Error(String(err.originalError), { cause: err });
     }
-    if (err instanceof TimeoutError) throw err;
-    if (err instanceof CancelError) throw err;
-    if (err instanceof RetryExhaustedError) throw err;
-    if (err instanceof HttpError) throw err;
-    if (err instanceof ConfigError) throw err;
-    if (err instanceof ParseError) throw err;
-    if (err instanceof ValidationError) throw err;
-    if (err instanceof NetworkError) throw err;
+    if (err instanceof FetchNativeError) throw err;
 
     if ((err instanceof Error && err.name === 'AbortError') || totalController.signal.aborted) {
       const reason: unknown = totalController.signal.reason;

@@ -48,6 +48,21 @@ import type {
   WaitForOptions,
 } from './types.js';
 
+function mergeReq(
+  method: HttpMethod,
+  url: string,
+  body?: RequestConfig['body'],
+  reqConfig?: RequestConfig,
+): RequestConfig & { url: string; method: HttpMethod } {
+  const merged: RequestConfig & { url: string; method: HttpMethod } = {
+    ...reqConfig,
+    url,
+    method,
+  };
+  if (body !== undefined) merged.body = body;
+  return merged;
+}
+
 /**
  * Creates and configures a new `HttpClient` instance.
  *
@@ -195,33 +210,12 @@ export function createClient(config: ClientConfig = {}): HttpClient {
   const safe: SafeHttpClient = {
     get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'GET' }),
-    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'POST',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
-    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PUT',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
-    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PATCH',
-      };
-      if (body !== undefined) merged.body = body;
-      return safeRequest<T>(merged);
-    },
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('POST', url, body, reqConfig)),
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('PUT', url, body, reqConfig)),
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      safeRequest<T>(mergeReq('PATCH', url, body, reqConfig)),
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       safeRequest<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
@@ -521,33 +515,12 @@ export function createClient(config: ClientConfig = {}): HttpClient {
     request,
     get: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'GET' }),
-    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'POST',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
-    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PUT',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
-    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) => {
-      const merged: RequestConfig & { url: string; method: HttpMethod } = {
-        ...reqConfig,
-        url,
-        method: 'PATCH',
-      };
-      if (body !== undefined) merged.body = body;
-      return request<T>(merged);
-    },
+    post: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('POST', url, body, reqConfig)),
+    put: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('PUT', url, body, reqConfig)),
+    patch: <T = unknown>(url: string, body?: RequestConfig['body'], reqConfig?: RequestConfig) =>
+      request<T>(mergeReq('PATCH', url, body, reqConfig)),
     delete: <T = unknown>(url: string, reqConfig?: RequestConfig) =>
       request<T>({ ...reqConfig, url, method: 'DELETE' }),
     del: <T = unknown>(url: string, reqConfig?: RequestConfig) =>

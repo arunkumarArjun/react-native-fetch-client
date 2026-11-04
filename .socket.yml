@@ -1,0 +1,24 @@
+# Socket.dev Configuration
+# https://docs.socket.dev/docs/socket-yml
+version: 2
+
+# Exclude build and coverage outputs from Socket analysis
+projectIgnorePaths:
+  - "dist/**"
+  - "coverage/**"
+  - "test/**"
+
+# Only trigger pull request alerts when package dependencies change
+triggerPaths:
+  - "package.json"
+  - "package-lock.json"
+
+# Configure issue rules
+issueRules:
+  # react-native-fetch-client is an HTTP client library whose core purpose is network access via WHATWG fetch
+  networkAccess: false
+
+# Socket GitHub App settings
+githubApp:
+  enabled: true
+  dependencyOverviewEnabled: true

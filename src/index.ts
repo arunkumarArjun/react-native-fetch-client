@@ -55,6 +55,8 @@ export type {
   InternalRequestConfig,
 } from './types.js';
 
+export type { CacheEntry, SerializedCacheEntry } from './cache.js';
+
 // Error classes and type guards — stable API surface
 export {
   FetchNativeError,

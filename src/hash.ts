@@ -19,4 +19,3 @@ export function hashAuthHeader(str: string): string {
   }
   return (hash >>> 0).toString(16);
 }
-

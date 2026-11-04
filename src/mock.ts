@@ -9,7 +9,7 @@
  */
 
 import { TimeoutError } from './errors.js';
-import type { HttpClient, HttpMethod, RequestConfig } from './types.js';
+import type { HttpClient, HttpMethod, PathParams, QueryParams, RequestConfig } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Mock adapter public types (defined here to keep the main bundle lean)
@@ -46,8 +46,8 @@ export interface MockHistoryItem {
   method: HttpMethod;
   headers?: Record<string, string>;
   body?: unknown;
-  params?: import('./types.js').QueryParams;
-  pathParams?: import('./types.js').PathParams;
+  params?: QueryParams;
+  pathParams?: PathParams;
 }
 
 /**

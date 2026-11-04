@@ -64,13 +64,13 @@ sequenceDiagram
 ## Stage-by-Stage Breakdown
 
 ### Stage 1: Client Entry & Options Merging
-* **File Reference**: [`src/client.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/client.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
+* **File Reference**: [`src/client.ts`](../src/client.ts), [`src/executor.ts`](../src/executor.ts)
 * When you invoke `api.get(url, config)` or `api.post(url, body, config)`, the client delegates to `api.request({ ...config, url, method, body })`.
 * Default client configurations (`baseURL`, `timeout`, `retry`, `cache`, `headers`) are merged with per-request overrides. Per-request overrides take precedence.
 * **Cancellation Group Interception (`cancelPrevious`)**: If `cancelPrevious` is supplied, any existing in-flight request sharing the same group key is automatically aborted with `CancelError`.
 
 ### Stage 2: URL Normalization & Parameter Interpolation
-* **File Reference**: [`src/url.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/url.ts)
+* **File Reference**: [`src/url.ts`](../src/url.ts)
 * **Path Parameter Replacement**:
   Tokens such as `/org/:orgId/users/{userId}` are matched against `config.pathParams = { orgId: 'acme', userId: 42 }` and interpolated to `/org/acme/users/42`.
 * **BaseURL Resolution**:
@@ -83,39 +83,39 @@ sequenceDiagram
   * `'comma'`: `filter=a,b`
 
 ### Stage 3: Concurrency Throttling (FIFO Queue)
-* **File Reference**: [`src/concurrency.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/concurrency.ts)
+* **File Reference**: [`src/concurrency.ts`](../src/concurrency.ts)
 * If `maxConcurrentRequests: N` is set (e.g., `maxConcurrentRequests: 2`), the client ensures no more than `N` requests are in-flight simultaneously.
 * Excess requests are queued in a FIFO waiting list.
 * As soon as an active request completes (whether resolved or rejected), the next task in the queue is automatically dequeued and executed.
 
 ### Stage 4: Request Interceptor Pipeline
-* **File Reference**: [`src/interceptor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/interceptor.ts)
+* **File Reference**: [`src/interceptor.ts`](../src/interceptor.ts)
 * Registered request interceptors run in the order they were attached (`api.interceptors.request.use(...)`).
 * Each interceptor can modify headers, transform payloads, or reject with a custom error before any network packet is dispatched.
 
 ### Stage 5: Authentication & Bearer Provider
-* **File Reference**: [`src/auth.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/auth.ts)
+* **File Reference**: [`src/auth.ts`](../src/auth.ts)
 * **Proactive Token Refresh**: If `isExpired` is configured and returns true, `refreshToken()` runs proactively before sending, avoiding an initial 401 error roundtrip.
 * **Bearer Injection**:
   * Static string: `Authorization: Bearer <token>` is injected if not already present.
   * Async getter `() => Promise<string>`: Evaluates asynchronously per-request.
 
 ### Stage 6: Cache Check & Stale-While-Revalidate (SWR)
-* **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
+* **File Reference**: [`src/cache.ts`](../src/cache.ts), [`src/executor.ts`](../src/executor.ts)
 * If the request is a cacheable method (`GET` or `HEAD`):
   * **Fresh Hit**: Returns cached `HttpResponse` instantly (0ms, `cached: true`).
   * **Stale Hit (SWR Strategy)**: If `strategy: 'stale-while-revalidate'`, returns stale response immediately (0ms, `cached: true, stale: true`) and quietly dispatches background revalidation. When background fetch finishes, `onRevalidated` triggers with fresh data (or `onRevalidationError` if it fails).
   * **ETag Validation**: If an ETag exists for the URL, the client attaches `If-None-Match: <etag>`. If the server returns `304 Not Modified`, the cached body is reused without re-downloading bytes.
 
 ### Stage 7: In-Flight Request Deduplication
-* **File Reference**: [`src/dedup.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/dedup.ts)
+* **File Reference**: [`src/dedup.ts`](../src/dedup.ts)
 * If multiple components in a React component tree trigger identical GET calls simultaneously:
   * Request 1 initiates the network socket.
   * Request 2 and Request 3 subscribe to the identical in-flight promise.
   * When Request 1 resolves, all 3 receive the response simultaneously (`fromDedup: true` on secondary subscribers).
 
 ### Stage 8: Resilient Retry Loop
-* **File Reference**: [`src/retry.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/retry.ts)
+* **File Reference**: [`src/retry.ts`](../src/retry.ts)
 * If network or server errors occur (`500`, `502`, `503`, `504`, `429`):
   * Calculates backoff delay (`delay * 2^attempt`).
   * Adds randomized `jitter` to prevent thundering herd.
@@ -123,20 +123,20 @@ sequenceDiagram
   * Retries only safe idempotent methods unless explicitly overridden.
 
 ### Stage 9: WHATWG Fetch Transport & Progress
-* **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts), [`src/executor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/executor.ts)
+* **File Reference**: [`src/parse.ts`](../src/parse.ts), [`src/executor.ts`](../src/executor.ts)
 * Connects using `globalThis.fetch` (or custom `fetchImpl`).
 * If `onUploadProgress` or `onDownloadProgress` is provided, requests and responses are monitored calculating loaded/total byte progress metrics.
 * Supports caller abort via standard `AbortController.signal` or client `timeout`.
 
 ### Stage 10: Single-Flight 401 Token Refresh Mutex
-* **File Reference**: [`src/auth.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/auth.ts)
+* **File Reference**: [`src/auth.ts`](../src/auth.ts)
 * If the server responds with `401 Unauthorized` and `auth.refreshToken` is configured:
   * All concurrent 401 requests pause behind an internal mutex.
   * Exactly **one** refresh network call is dispatched.
   * Once the new access token is obtained, all queued requests are updated with the new Authorization header and replayed.
 
 ### Stage 11: Body Parsing
-* **File Reference**: [`src/parse.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/parse.ts)
+* **File Reference**: [`src/parse.ts`](../src/parse.ts)
 * Automatically determines response body format based on `responseType` option or `content-type` header:
   * `json`: Parsed JSON object/array (safely returns null on empty bodies).
   * `text`: Plain text string.
@@ -145,19 +145,19 @@ sequenceDiagram
   * `stream`: Raw `ReadableStream<Uint8Array>`.
 
 ### Stage 12: Schema Validation
-* **File Reference**: [`src/validator.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/validator.ts)
+* **File Reference**: [`src/validator.ts`](../src/validator.ts)
 * If `config.schema` is defined:
   * Evaluated against **Standard Schema Spec v1** (`~standard`), **Zod** (`.parse()`), **Valibot**, or custom validation functions.
   * If schema issues are found, execution halts and throws `ValidationError` with detailed issue paths and messages.
 
 ### Stage 13: Cache Storage & Mutation Invalidation
-* **File Reference**: [`src/cache.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/cache.ts)
+* **File Reference**: [`src/cache.ts`](../src/cache.ts)
 * **Writing Cache**: Successful GET responses are saved in the in-memory LRU cache and serialized to `storage` (if persistent storage adapter is provided).
 * **Automatic Invalidation**: Successful mutation requests (`POST`, `PUT`, `PATCH`, `DELETE`) automatically invalidate matching path cache entries.
 * **Declarative Invalidation**: Custom routes or RegExp patterns listed in `cache.invalidate` are purged immediately upon mutation success.
 
 ### Stage 14: Response Interceptors
-* **File Reference**: [`src/interceptor.ts`](file:///Users/arunkumar.arjunan/Documents/PlayGround/react-native-fetch-client/src/interceptor.ts)
+* **File Reference**: [`src/interceptor.ts`](../src/interceptor.ts)
 * Registered response interceptors run sequentially (`api.interceptors.response.use(...)`), allowing global response transformations or unified error logging.
 
 ### Stage 15: Response Output Modes

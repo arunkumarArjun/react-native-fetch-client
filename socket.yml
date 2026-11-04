@@ -22,3 +22,4 @@ issueRules:
 githubApp:
   enabled: true
   dependencyOverviewEnabled: true
+

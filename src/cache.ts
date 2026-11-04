@@ -4,10 +4,29 @@ import type {
   HttpMethod,
   HttpResponse,
   RequestCacheConfig,
+  ResolvedRequestConfig,
   ResponseCache,
 } from './types.js';
-import { isAbsoluteUrl } from './url.js';
+import { sortQueryString } from './url.js';
 import { hashAuthHeader } from './hash.js';
+
+const DUMMY_HYDRATE_CONFIG: ResolvedRequestConfig = {
+  url: '',
+  method: 'GET',
+  headers: {},
+  timeout: 0,
+  responseType: 'json',
+  retry: {
+    attempts: 0,
+    backoff: 'exponential',
+    delay: 1000,
+    maxDelay: 30000,
+    jitter: true,
+    retryOn: [429, 500, 502, 503, 504],
+    safeMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'],
+    respectRetryAfter: true,
+  },
+};
 
 /** Internal cache entry storing the cloned response and expiration timestamp. */
 export interface CacheEntry<T = unknown> {
@@ -68,16 +87,7 @@ export function generateCacheKey(
 ): string {
   const normMethod = method.toUpperCase();
 
-  // Fast-path: When URL contains no query string (no searchParams to sort),
-  // bypass expensive WHATWG URL instantiation entirely.
-  let sortedUrl = url;
-  if (url.includes('?')) {
-    const isRelative = !isAbsoluteUrl(url);
-    const urlObj = new URL(url, 'http://localhost');
-    urlObj.searchParams.sort();
-    const pathWithSearch = urlObj.pathname + (urlObj.search ? urlObj.search : '');
-    sortedUrl = isRelative ? pathWithSearch : `${urlObj.origin}${pathWithSearch}`;
-  }
+  const sortedUrl = sortQueryString(url);
 
   const resType = responseType || 'json';
   const typePart = resType !== 'json' ? `|type:${resType}` : '';
@@ -219,23 +229,7 @@ export class CacheManager implements ResponseCache {
                   status: rawEntry.status,
                   statusText: rawEntry.statusText,
                   headers: rawEntry.headers,
-                  config: {
-                    url: '',
-                    method: 'GET',
-                    headers: {},
-                    timeout: 0,
-                    responseType: 'json',
-                    retry: {
-                      attempts: 0,
-                      backoff: 'exponential',
-                      delay: 1000,
-                      maxDelay: 30000,
-                      jitter: true,
-                      retryOn: [429, 500, 502, 503, 504],
-                      safeMethods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'],
-                      respectRetryAfter: true,
-                    },
-                  },
+                  config: DUMMY_HYDRATE_CONFIG,
                   cached: true,
                   fromDedup: false,
                   request: (typeof Request !== 'undefined'

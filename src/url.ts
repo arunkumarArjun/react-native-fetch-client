@@ -109,6 +109,27 @@ function trimTrailingSlashes(str: string): string {
 }
 
 /**
+ * Deterministically sorts query parameters in a URL string for cache and dedup keys.
+ * Fast-paths URLs without query strings to bypass WHATWG URL instantiation.
+ *
+ * @internal
+ */
+export function sortQueryString(url: string): string {
+  if (!url.includes('?')) {
+    return url;
+  }
+  try {
+    const isRelative = !isAbsoluteUrl(url);
+    const parsed = new URL(url, 'http://localhost');
+    parsed.searchParams.sort();
+    const pathWithSearch = parsed.pathname + (parsed.search || '');
+    return isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Builds a resolved URL from a base URL, a relative/absolute URL, query parameters,
  * and path parameters.
  *
@@ -144,14 +165,8 @@ export function buildUrl(
       hash = resolvedUrl.slice(hashIndex);
     }
 
-    const searchParams = new URLSearchParams();
     const [base, search] = urlWithoutHash.split('?');
-
-    // Preserve existing query params
-    if (search) {
-      const existing = new URLSearchParams(search);
-      existing.forEach((val, key) => searchParams.append(key, val));
-    }
+    const searchParams = new URLSearchParams(search || '');
 
     // Add new query params
     for (const [key, value] of Object.entries(params)) {

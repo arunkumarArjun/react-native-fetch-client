@@ -9,6 +9,7 @@
  */
 
 import { TimeoutError } from './errors.js';
+import { mergeHeaders } from './headers.js';
 import type { HttpClient, HttpMethod, PathParams, QueryParams, RequestConfig } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -203,19 +204,7 @@ export function createMockAdapter(
       method,
     };
     if (init?.headers) {
-      const hdrs: Record<string, string> = {};
-      if (typeof Headers !== 'undefined' && init.headers instanceof Headers) {
-        init.headers.forEach((v, k) => {
-          hdrs[k] = v;
-        });
-      } else if (Array.isArray(init.headers)) {
-        for (const [k, v] of init.headers) {
-          hdrs[k] = v;
-        }
-      } else {
-        Object.assign(hdrs, init.headers);
-      }
-      historyItem.headers = hdrs;
+      historyItem.headers = mergeHeaders(init.headers);
     }
     if (init?.body) {
       historyItem.body = init.body;

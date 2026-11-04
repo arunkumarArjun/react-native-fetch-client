@@ -38,6 +38,7 @@ import type {
   RequestConfig,
   HttpMethod,
   HttpResponse,
+  ResolvedRetryPolicy,
   SafeResult,
   SafeHttpClient,
   StreamEvent,
@@ -47,6 +48,17 @@ import type {
   PollOptions,
   WaitForOptions,
 } from './types.js';
+
+const ZERO_RETRY_POLICY: ResolvedRetryPolicy = {
+  attempts: 0,
+  backoff: 'exponential',
+  delay: 0,
+  maxDelay: 0,
+  jitter: false,
+  retryOn: [],
+  safeMethods: [],
+  respectRetryAfter: false,
+};
 
 function mergeReq(
   method: HttpMethod,
@@ -346,18 +358,17 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           headers: {},
           timeout,
           responseType: options.responseType ?? 'json',
-          retry: {
-            attempts: 0,
-            backoff: 'exponential',
-            delay: 0,
-            maxDelay: 0,
-            jitter: false,
-            retryOn: [],
-            safeMethods: [],
-            respectRetryAfter: false,
-          },
+          retry: ZERO_RETRY_POLICY,
         },
       });
+
+    const checkAbort = (fallbackError?: unknown): void => {
+      if (callerAborted || options.signal?.aborted) {
+        const reason: unknown = options.signal?.reason;
+        if (reason instanceof CancelError) throw reason;
+        throw new CancelError({ cause: reason ?? fallbackError });
+      }
+    };
 
     const overallController = new AbortController();
     let overallTimerId: ReturnType<typeof setTimeout> | undefined;
@@ -392,11 +403,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
 
     try {
       while (true) {
-        if (callerAborted || options.signal?.aborted) {
-          const reason: unknown = options.signal?.reason;
-          if (reason instanceof CancelError) throw reason;
-          throw new CancelError({ cause: reason });
-        }
+        checkAbort();
 
         if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
           throw createTimeoutError();
@@ -420,11 +427,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
             throw createTimeoutError();
           }
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason ?? err });
-          }
+          checkAbort(err);
           if (err instanceof TimeoutError && timedOut) {
             throw createTimeoutError();
           }
@@ -483,11 +486,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
           if (timedOut || (timeout > 0 && Date.now() - startTime >= timeout)) {
             throw createTimeoutError();
           }
-          if (callerAborted || options.signal?.aborted) {
-            const reason: unknown = options.signal?.reason;
-            if (reason instanceof CancelError) throw reason;
-            throw new CancelError({ cause: reason ?? sleepErr });
-          }
+          checkAbort(sleepErr);
           throw sleepErr;
         }
 
@@ -500,11 +499,7 @@ export function createClient(config: ClientConfig = {}): HttpClient {
       ) {
         throw createTimeoutError();
       }
-      if (callerAborted || options.signal?.aborted) {
-        const reason: unknown = options.signal?.reason;
-        if (reason instanceof CancelError) throw reason;
-        throw new CancelError({ cause: reason ?? err });
-      }
+      checkAbort(err);
       throw err;
     } finally {
       cleanup();

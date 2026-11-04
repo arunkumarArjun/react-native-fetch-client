@@ -1,5 +1,5 @@
 import { CancelError, createAbortError } from './errors.js';
-import { isAbsoluteUrl } from './url.js';
+import { sortQueryString } from './url.js';
 import { hashAuthHeader } from './hash.js';
 import type { DedupConfig, HttpMethod, HttpResponse } from './types.js';
 
@@ -30,18 +30,7 @@ export function generateDedupKey(
 ): string {
   const m = method.toUpperCase();
 
-  let normalizedUrl = url;
-  if (url.includes('?')) {
-    try {
-      const isRelative = !isAbsoluteUrl(url);
-      const parsed = new URL(url, 'http://localhost');
-      parsed.searchParams.sort();
-      const pathWithSearch = parsed.pathname + parsed.search;
-      normalizedUrl = isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
-    } catch {
-      // Keep original url
-    }
-  }
+  const normalizedUrl = sortQueryString(url);
 
   const relevantKeys = ['accept', 'content-type', 'authorization', 'accept-language'];
   const headerPairs: string[] = [];

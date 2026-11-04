@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-04
+
+### Improvements & Type Ergonomics
+
+- **Public Cache Storage Types**: Re-exported `CacheEntry` and `SerializedCacheEntry` types from the main package index (`react-native-fetch-client`) to provide full type definitions when implementing custom persistent storage adapters (`MMKV`, `AsyncStorage`, SQLite).
+- **Documentation Link Integrity**: Resolved file references in `docs/architecture-flow.md` to use portable repository-relative links rather than local absolute filesystem paths.
+- **Subpath Export Testing**: Added automated regression testing covering package subpath type re-exports in `test/subpaths.test.ts`.
+
+---
+
 ## [1.0.0] - 2026-11-02
 
 ### General Availability & Stable Release

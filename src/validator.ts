@@ -34,6 +34,19 @@ function buildValidationOptions(
   return opts;
 }
 
+function toValidationError(
+  err: unknown,
+  data: unknown,
+  config?: ResolvedRequestConfig,
+  issues?: unknown,
+): ValidationError {
+  if (err instanceof ValidationError) return err;
+  const resolvedIssues =
+    issues ?? (err !== null && typeof err === 'object' && 'issues' in err ? err.issues : undefined);
+  const msg = err instanceof Error ? err.message : 'Schema validation failed';
+  return new ValidationError(msg, buildValidationOptions(data, config, resolvedIssues, err));
+}
+
 /**
  * Validates parsed HTTP response data against an arbitrary schema validator.
  *
@@ -84,9 +97,7 @@ export async function validateData<T>(
         return result.value;
       }
     } catch (err: unknown) {
-      if (err instanceof ValidationError) throw err;
-      const msg = err instanceof Error ? err.message : 'Schema validation failed';
-      throw new ValidationError(msg, buildValidationOptions(data, config, undefined, err));
+      throw toValidationError(err, data, config);
     }
   }
 
@@ -105,17 +116,11 @@ export async function validateData<T>(
             ? schema.safeParse(data)
             : { success: true as const, data: data as T };
       if (!res.success) {
-        const issues = res.error && 'issues' in res.error ? res.error.issues : undefined;
-        throw new ValidationError(
-          res.error?.message ?? 'Schema validation failed',
-          buildValidationOptions(data, config, issues, res.error),
-        );
+        throw toValidationError(res.error, data, config);
       }
       return res.data;
     } catch (err: unknown) {
-      if (err instanceof ValidationError) throw err;
-      const msg = err instanceof Error ? err.message : 'Schema validation failed';
-      throw new ValidationError(msg, buildValidationOptions(data, config, undefined, err));
+      throw toValidationError(err, data, config);
     }
   }
 
@@ -135,11 +140,7 @@ export async function validateData<T>(
       }
       return data as T;
     } catch (err: unknown) {
-      const issues =
-        err !== null && typeof err === 'object' && 'issues' in err ? err.issues : undefined;
-
-      const msg = err instanceof Error ? err.message : 'Schema validation failed';
-      throw new ValidationError(msg, buildValidationOptions(data, config, issues, err));
+      throw toValidationError(err, data, config);
     }
   }
 
@@ -148,9 +149,7 @@ export async function validateData<T>(
     try {
       return await schema(data);
     } catch (err: unknown) {
-      if (err instanceof ValidationError) throw err;
-      const msg = err instanceof Error ? err.message : 'Schema validation failed';
-      throw new ValidationError(msg, buildValidationOptions(data, config, undefined, err));
+      throw toValidationError(err, data, config);
     }
   }
 

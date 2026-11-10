@@ -5,9 +5,9 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 [![npm version](https://img.shields.io/npm/v/react-native-fetch-client.svg)](https://www.npmjs.com/package/react-native-fetch-client)
 [![CI](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml/badge.svg)](https://github.com/arunkumarArjun/react-native-fetch-client/actions/workflows/ci.yml)
 [![Socket Security](https://badge.socket.dev/npm/package/react-native-fetch-client)](https://socket.dev/npm/package/react-native-fetch-client)
-[![Bundle Size](https://img.shields.io/badge/bundle%20size-12.8%20KB%20min%2Bgzip-brightgreen.svg)](https://bundlephobia.com/package/react-native-fetch-client)
+[![Bundle Size](https://img.shields.io/badge/bundle%20size-12.67%20KB%20min%2Bgzip-brightgreen.svg)](https://bundlephobia.com/package/react-native-fetch-client)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-301%20passed-brightgreen.svg)](test)
+[![Tests](https://img.shields.io/badge/tests-304%20passed-brightgreen.svg)](test)
 [![Documentation](https://img.shields.io/badge/docs-interactive%20site-blue.svg)](https://react-native-fetch-client.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
@@ -19,7 +19,7 @@ A lightweight, Fetch-native HTTP client for TypeScript and JavaScript across Rea
 | Feature | `react-native-fetch-client` | Axios |
 | :--- | :--- | :--- |
 | **Runtime Dependencies** | **0** (`dependencies: {}`) | 4 dependencies (`proxy-agent`, `redirects`, etc.) |
-| **Minified Core Bundle** | **38.5 KB** (~12.8 KB gzip) | ~75 KB |
+| **Minified Core Bundle** | **38.08 KB** (~12.67 KB gzip) | ~75 KB |
 | **Mobile Network Engine**| Native WHATWG `fetch` (Hermes C++ JNI) | Legacy `XMLHttpRequest` (XHR bridge) |
 | **401 Token Refresh**   | **Built-in Atomic Mutex** (zero race conditions) | Manual race-prone interceptor boilerplate |
 | **Caching & Deduplication** | **Built-in SWR Cache (0ms)** & In-Flight Dedup | Requires 3rd-party plugins |
@@ -646,9 +646,14 @@ try {
 
 For release history, migration notes, and version highlights, see [CHANGELOG.md](CHANGELOG.md).
 
-## Security
+## Security & Supply Chain
 
-For vulnerability disclosure and security guidance, see [SECURITY.md](SECURITY.md).
+`react-native-fetch-client` is designed from the ground up for strict supply-chain security:
+- **Zero Runtime Dependencies**: `"dependencies": {}` completely eliminates third-party transitive vulnerabilities.
+- **Socket.dev Clearance**: Static security scanners flag the `networkAccess` capability as expected behavior for this HTTP client (dispatched exclusively via `globalThis.fetch` on caller invocation). Zero background telemetry or data collection.
+- **Automatic Sanitization**: Auth headers and credentials are automatically redacted in error logs and stripped from offline queues on disk.
+
+For complete vulnerability reporting and security policies, see [SECURITY.md](SECURITY.md).
 
 ## Contributing
 

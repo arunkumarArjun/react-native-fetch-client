@@ -9,7 +9,9 @@ import {
 } from './errors.js';
 import type { ResolvedRequestConfig, ResolvedRetryPolicy, RetryPolicy } from './types.js';
 
-/** Default retry policy applied when retry is enabled without specific overrides. */
+/** Default retry policy applied when retry is enabled without specific overrides.
+ * @internal
+ */
 export const DEFAULT_RETRY_POLICY: ResolvedRetryPolicy = {
   attempts: 0,
   backoff: 'exponential',
@@ -60,6 +62,8 @@ export function resolveRetryPolicy(
  * Parses the HTTP Retry-After response header into milliseconds.
  * Supports both delay-seconds (e.g. "120") and HTTP-date (e.g. "Wed, 21 Oct 2026 07:28:00 GMT").
  * Returns null if the header is missing, malformed, or represents a past date.
+ *
+ * @internal
  */
 export function parseRetryAfter(headerValue?: string | null): number | null {
   if (!headerValue || typeof headerValue !== 'string') {

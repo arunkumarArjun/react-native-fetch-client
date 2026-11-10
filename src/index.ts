@@ -52,7 +52,6 @@ export type {
   PaginateHelper,
   PollOptions,
   WaitForOptions,
-  InternalRequestConfig,
 } from './types.js';
 
 export type { CacheEntry, SerializedCacheEntry } from './cache.js';
@@ -101,7 +100,7 @@ export { createClient };
  * const api = client.create({ baseURL: 'https://api.example.com' });
  * ```
  */
-const defaultClient: DefaultHttpClient = Object.assign(createClient(), {
+const defaultClient: DefaultHttpClient = /* @__PURE__ */ Object.assign(createClient(), {
   create: createClient,
   createClient,
 });

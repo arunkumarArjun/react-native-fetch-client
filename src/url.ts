@@ -11,10 +11,15 @@
 
 import type { PathParams, QueryParams } from './types.js';
 
+const PATH_PARAM_PATTERN = /:([a-zA-Z0-9_]+)(?=[/?#]|$)|(?:\{([a-zA-Z0-9_]+)\})/g;
+
 /**
  * Interpolates path parameters into a URL template string.
  * Supports both Express-style (`:param`) and OpenAPI-style (`{param}`) placeholders.
  * Parameter values are automatically URI-encoded.
+ *
+ * Fast-paths URLs without parameter tokens and uses a single-pass pre-compiled regex
+ * to eliminate runtime regex recompilations on hot paths.
  *
  * @param url The URL template string (e.g. `/users/:id/orders/{orderId}`).
  * @param pathParams Object containing the parameter key/value mappings.
@@ -27,25 +32,19 @@ import type { PathParams, QueryParams } from './types.js';
  * ```
  */
 export function interpolatePath(url: string, pathParams?: PathParams): string {
-  if (!pathParams || Object.keys(pathParams).length === 0) {
+  if (!pathParams || (!url.includes(':') && !url.includes('{'))) {
     return url;
   }
 
-  let result = url;
-
-  for (const [key, val] of Object.entries(pathParams)) {
-    if (val !== undefined && val !== null) {
-      const encoded = encodeURIComponent(String(val));
-      // Replace :paramName
-      const colonPattern = new RegExp(`:${key}(?=[/?#]|$)`, 'g');
-      result = result.replace(colonPattern, encoded);
-      // Replace {paramName}
-      const bracePattern = new RegExp(`\\{${key}\\}`, 'g');
-      result = result.replace(bracePattern, encoded);
-    }
-  }
-
-  return result;
+  return url.replace(
+    PATH_PARAM_PATTERN,
+    (match: string, p1: string | undefined, p2: string | undefined) => {
+      const key = p1 ?? p2;
+      if (!key) return match;
+      const val = pathParams[key];
+      return val !== undefined && val !== null ? encodeURIComponent(String(val)) : match;
+    },
+  );
 }
 
 /**
@@ -71,8 +70,13 @@ export function isAbsoluteUrl(url: string): boolean {
  * @param url1 First URL string to compare.
  * @param url2 Second URL string to compare.
  * @returns True if both URLs share the same origin.
+ * @internal Used internally by the executor and paginate module; not part of the public API.
  */
 export function isSameOrigin(url1: string, url2: string): boolean {
+  if (url1 === url2) return true;
+  const isAbs1 = isAbsoluteUrl(url1);
+  const isAbs2 = isAbsoluteUrl(url2);
+  if (!isAbs1 && !isAbs2) return true;
   try {
     const origin1 = new URL(url1, 'http://localhost').origin;
     const origin2 = new URL(url2, 'http://localhost').origin;
@@ -105,6 +109,27 @@ function trimTrailingSlashes(str: string): string {
 }
 
 /**
+ * Deterministically sorts query parameters in a URL string for cache and dedup keys.
+ * Fast-paths URLs without query strings to bypass WHATWG URL instantiation.
+ *
+ * @internal
+ */
+export function sortQueryString(url: string): string {
+  if (!url.includes('?')) {
+    return url;
+  }
+  try {
+    const isRelative = !isAbsoluteUrl(url);
+    const parsed = new URL(url, 'http://localhost');
+    parsed.searchParams.sort();
+    const pathWithSearch = parsed.pathname + (parsed.search || '');
+    return isRelative ? pathWithSearch : `${parsed.origin}${pathWithSearch}`;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Builds a resolved URL from a base URL, a relative/absolute URL, query parameters,
  * and path parameters.
  *
@@ -131,7 +156,7 @@ export function buildUrl(
   }
 
   // Step 3: Append query params
-  if (params) {
+  if (params && Object.keys(params).length > 0) {
     const hashIndex = resolvedUrl.indexOf('#');
     let urlWithoutHash = resolvedUrl;
     let hash = '';
@@ -140,14 +165,8 @@ export function buildUrl(
       hash = resolvedUrl.slice(hashIndex);
     }
 
-    const searchParams = new URLSearchParams();
     const [base, search] = urlWithoutHash.split('?');
-
-    // Preserve existing query params
-    if (search) {
-      const existing = new URLSearchParams(search);
-      existing.forEach((val, key) => searchParams.append(key, val));
-    }
+    const searchParams = new URLSearchParams(search || '');
 
     // Add new query params
     for (const [key, value] of Object.entries(params)) {

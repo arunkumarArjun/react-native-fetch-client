@@ -6,7 +6,7 @@ We actively support and provide security patches for the following versions:
 
 | Version | Supported | Status / Channel |
 | ------- | --------- | ---------------- |
-| 1.0.x   | Yes       | Active (LTS: 1.0.0, Updates: 1.0.1) |
+| 1.0.x   | Yes       | Active (LTS: 1.0.0, Updates: 1.0.2) |
 | 0.3.x   | Yes       | Maintenance |
 | 0.2.x   | Yes       | Maintenance |
 | 0.1.x   | Yes       | Maintenance |

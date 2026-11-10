@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-11-04
+## [1.0.1] - 2026-11-04 (Latest Updates)
 
 ### Improvements & Type Ergonomics
 
@@ -15,11 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-11-02
+## [1.0.0] - 2026-11-02 (Official LTS Release)
 
-### General Availability & Stable Release
+### General Availability & Long Term Support Foundation
 
-- **Official Stable Release (`v1.0.0`)**: Declares the public API stable with strict adherence to Semantic Versioning (SemVer).
+- **Official LTS Stable Release (`v1.0.0`)**: Declares the public API stable with strict adherence to Semantic Versioning (SemVer) as the Long Term Support foundation.
 - **Enterprise-Vetted & Production-Hardened**:
   - **Zero Runtime Dependencies**: Strict `dependencies: {}` footprint guaranteed.
   - **Comprehensive Test Coverage**: 35 test suites with 301 automated unit and integration tests passing with 100% reliability.
